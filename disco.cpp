@@ -72,7 +72,7 @@ bool Disco::crearDisco(string nombre, double disksizeMb, double blocksizeB)
     a.blockuse=1;
     a.filesize=0;
     memset(a.directos,-1,10);
-    a.directos[0]=FS_blockused+1;
+    a.directos[0]=FS_blockused+=1;
     a.indirectossimples=-1;
     a.indirectosdobles=-1;
     a.indirectostriples=-1;
@@ -157,15 +157,17 @@ bool Disco::mount(string nombre)
     in.read(buffer,sizeof(superBlock_d));
     memcpy((&sb),buffer,sizeof(superBlock_d));
 
-    int bitmap_size =sb.cantofblock/8;
+    bitmap_size =sb.cantofblock/8;
     char *buffer2 = new char[bitmap_size];
     in.read(buffer2,bitmap_size*sizeof(char));
-    memcpy((&bitmap),buffer2,bitmap_size*sizeof(char));
+    bitmap = new char[bitmap_size];
+    memcpy((bitmap),buffer2,bitmap_size*sizeof(char));
 
-    int bit_inode_size =(sb.cantofinode/8);
+    bit_inode_size =(sb.cantofinode/8);
     char *buffer3 = new char[bit_inode_size];
     in.read(buffer3,bit_inode_size*sizeof(char));
-    memcpy((&bitmap_inode),buffer3,bit_inode_size*sizeof(char));
+    bitmap_inode = new char[bit_inode_size];
+    memcpy((bitmap_inode),buffer3,bit_inode_size*sizeof(char));
 
     char *b = new char[sizeof(FileTable_d)];
     ft_array = new FileTable_d[sb.cantofinode];
@@ -175,45 +177,55 @@ bool Disco::mount(string nombre)
         memcpy((&temp),b,sizeof(FileTable_d));
         ft_array[i]=temp;
     }
-    cout<<"PRUEBAAAAAAAA"<<endl;
-    cout<<ft_array[0].name<<endl;
+    FS_size= sizeof(superBlock)+bitmap_size*sizeof(char)+bit_inode_size*sizeof(char)+(sizeof(FileTable_d)*sb.cantofinode)+
+            (sizeof(inode_d)*sb.cantofinode);
+    blocksize=sb.sizeofblock;
+    FS_blockused=FS_size/blocksize;
+    FS_blockused+=2;
+//    cout<<"PRUEBAAAAAAAA"<<endl;
+//    cout<<"FS_blockused "<<FS_blockused<<endl;
+//    cout<<ft_array[0].name<<endl;
     in.close();
-    //THIS PROGRAM HAS UNexpectedly finished
     return true;
 }
 
 bool Disco::guardararchivo(string nombre, double size)
-{string path="DISKS/";
+{
+    double size_b = (size*1024)*1024;
+    int s=size_b;
+    char *file = new char[s];
+    memset(file,'k',size_b*sizeof(char));
+    string path="DISKS/";
     nombre+=".dat";
     path+=nombre;
     ifstream in(path.c_str(),ios::in | ios::out | ios::binary);
     if(!in){
         return false;
     }else{
-        char *buffer = new char[sizeof(superBlock_d)];
-        in.read(buffer,sizeof(superBlock_d));
-        superBlock_d sp;
-        memcpy((&sp),buffer,sizeof(superBlock_d));
-
-        char *buffer2 = new char[(sp.cantofblock/8)];
-        char bitmap[sp.cantofblock/8];
-        in.read(buffer2,sizeof(bitmap));
-        memcpy((&bitmap),buffer2,sizeof(bitmap));
-
-        char *buffer3 = new char[(sp.cantofinode/8)];
-        char bitmap_inode[sp.cantofinode/8];
-        in.read(buffer3,sizeof(bitmap_inode));
-        memcpy((&bitmap_inode),buffer3,sizeof(bitmap_inode));
-        in.close();
-
+        int next_bitmap=nextAvailable(bitmap,true);
+        int bit_i= nextAvailable(bitmap_inode,false);
 
     }
-    double size_b = (size*1024)*1024;
+    in.close();
+    return true;
 }
 
-int Disco::nextAvailable()
+int Disco::nextAvailable(char* bitmap, bool BT_BIF)
 {
-    int pos=1;
+    if(BT_BIF){
+        for(int i =FS_blockused; i<bitmap_size*sizeof(char);i++){
+            if(!is_block_in_use(bitmap,i)){
+                return i;
+            }
+        }
+    }else{
+        for(int i =0; i<bit_inode_size*sizeof(char);i++){
+            if(!is_block_in_use(bitmap,i)){
+                return i;
+            }
+        }
+    }
+    return -1;
 }
 
 QString Disco::getSP(string nombre)

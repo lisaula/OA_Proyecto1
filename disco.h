@@ -44,10 +44,10 @@ public:
     void setBlock_use(char* bitmap, int blocknum);
     void setBlock_unuse(char* bitmap, int blocknum);
     double FS_size;
-    int FS_blockused;
+    int FS_blockused,bit_inode_size,bitmap_size;
     bool mount(string nombre);
     bool guardararchivo(string nombre, double size);
-    int nextAvailable();
+    int nextAvailable(char *bitmap, bool BT_BIF);
     QString getSP(string nombre);
     char name[10];
     double disksizemb, disksizebyte;
