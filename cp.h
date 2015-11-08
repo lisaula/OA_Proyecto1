@@ -5,12 +5,15 @@
 #include<vector>
 #include"disco.h"
 #include<QGraphicsSimpleTextItem>
+#include<stdio.h>
+
 using namespace std;
 
 class CP
 {
 public:
     vector<string>parse;
+    vector<string>list_disk;
     string actual;
     string delimitador;
     QString logica();
@@ -19,6 +22,9 @@ public:
     CP();
 private:
     Disco *disk;
+    string DISK_PATH="DISKS/";
+    string current, dir;
+    bool m;
     QString parseLogic(vector<string> parse);
 };
 

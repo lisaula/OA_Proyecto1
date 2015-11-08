@@ -15,10 +15,12 @@ TEMPLATE = app
 SOURCES += main.cpp\
         widget.cpp \
     cp.cpp \
-    disco.cpp
+    disco.cpp \
+    inodecontroller.cpp
 
 HEADERS  += widget.h \
     cp.h \
-    disco.h
+    disco.h \
+    inodecontroller.h
 
 FORMS    += widget.ui

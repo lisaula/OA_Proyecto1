@@ -4,15 +4,16 @@
 #include <iostream>
 #include <stdio.h>
 #include <cstring>
+#include<QDir>
 
 using namespace std;
 
 typedef struct superBlock{
     char name[10];
-    int size;
+    double size;
+    double freespace;
     int cantofblock;
     int freeblock;
-    int freespace;
     int cantofinode;
     int freeinode;
     int sizeofblock;
@@ -30,13 +31,33 @@ typedef struct inode{
 
 }inode_d;
 
+typedef struct FileTable{
+    char name[20];
+    int inode_index;
+
+}FileTable_d;
+
 class Disco
 {
 public:
+    bool is_block_in_use(char* bitmap, int blocknum);
+    void setBlock_use(char* bitmap, int blocknum);
+    void setBlock_unuse(char* bitmap, int blocknum);
+    double FS_size;
+    int FS_blockused;
+    bool mount(string nombre);
+    bool guardararchivo(string nombre, double size);
+    int nextAvailable();
+    QString getSP(string nombre);
     char name[10];
-    int disksizemb, blocksize, disksizebyte;
+    double disksizemb, disksizebyte;
+    int blocksize;
     char block;
-    bool crearDisco(string nombre, int disksizeMb, int blocksizeB);
+    superBlock_d sb;
+    char *bitmap;
+    char *bitmap_inode;
+    FileTable_d *ft_array;
+    bool crearDisco(string nombre, double disksizeMb, double blocksizeB);
     Disco();
 };
 
