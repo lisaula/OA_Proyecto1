@@ -117,6 +117,7 @@ Disco::Disco()
     disksizemb=0;
     blocksize=0;
     disksizebyte=0;
+    block_utilized=0;
 }
 
 bool Disco::is_block_in_use(char* bitmap, int blocknum)
@@ -182,6 +183,7 @@ bool Disco::mount(string nombre)
     blocksize=sb.sizeofblock;
     FS_blockused=FS_size/blocksize;
     FS_blockused+=2;
+    block_utilized=sb.cantofblock-sb.freeblock;
 //    cout<<"PRUEBAAAAAAAA"<<endl;
 //    cout<<"FS_blockused "<<FS_blockused<<endl;
 //    cout<<ft_array[0].name<<endl;
@@ -189,24 +191,123 @@ bool Disco::mount(string nombre)
     return true;
 }
 
-bool Disco::guardararchivo(string nombre, double size)
+vector<double> Disco::fileVerification(double size_of_file)
+{
+    cout<<"ENtro"<<endl;
+    cout<<"SIZE OF BLOcks "<<sb.sizeofblock<<endl;
+    double blocks= sb.sizeofblock/4;
+    cout<<"BLOCKS "<<blocks<<endl;
+    double aditional_blocks=0;
+    double data_blocks = ceil(size_of_file/sb.sizeofblock);
+    vector<double>caso;
+    cout<<"Data blocks "<<data_blocks<<endl;
+    if(data_blocks <= 10){
+        cout<<"ADITIONAL BLOCKS "<<aditional_blocks<<endl;
+        caso.push_back(data_blocks);
+        caso.push_back(aditional_blocks);
+        caso.push_back(0);
+        return caso;
+    }else if(data_blocks <=(10+blocks)){
+        cout<<"Entro IS"<<endl;
+        aditional_blocks+=1;
+        cout<<"ADITIONAL BLOCKS "<<aditional_blocks<<endl;
+        caso.push_back(data_blocks);
+        caso.push_back(aditional_blocks);
+        caso.push_back(1);
+        return caso;
+    }else if(data_blocks <= (10+(1+blocks)*blocks)){
+        cout<<"Entro ID"<<endl;
+        double temp = data_blocks-10-blocks;
+        aditional_blocks=ceil(temp/blocks)+2;
+        cout<<"ADITIONAL BLOCKS "<<aditional_blocks<<endl;
+        caso.push_back(data_blocks);
+        caso.push_back(aditional_blocks);
+        caso.push_back(2);
+        return caso;
+    }else if(data_blocks <= (10 + blocks + pow(blocks,2) + pow(blocks,3) )){
+        cout<<"Entro IT"<<endl;
+        cout<<blocks<<" x2 "<<pow(blocks,2)<<" x3 "<<pow(blocks,3)<<endl;
+        double temp = data_blocks-10-blocks - pow(blocks,2);
+        cout<<temp<<" temp"<<endl;
+        aditional_blocks = ceil(temp/pow(blocks,2)) + ceil(temp/pow(blocks,1)) + 3 + blocks ;
+        cout<<"ADITIONAL BLOCKS "<<aditional_blocks<<endl;
+        caso.push_back(data_blocks);
+        caso.push_back(aditional_blocks);
+        caso.push_back(3);
+        return caso;
+    }else{
+        caso.push_back(0);
+        caso.push_back(0);
+        caso.push_back(-1);
+        return caso;
+    }
+    cout<<aditional_blocks+data_blocks<<" total"<<endl;
+}
+
+bool Disco::guardararchivo(string nombre_disco, double size, string nombre_archivo)
 {
     double size_b = (size*1024)*1024;
-    int s=size_b;
-    char *file = new char[s];
-    memset(file,'k',size_b*sizeof(char));
-    string path="DISKS/";
-    nombre+=".dat";
-    path+=nombre;
-    ifstream in(path.c_str(),ios::in | ios::out | ios::binary);
-    if(!in){
+    vector<double>needed = fileVerification(size_b);
+    cout<<"devolvio "<<needed[0]+needed[1]<<endl;
+    vector<double> blocksindex;
+    blocksindex = this->getfreeblocks(needed[0]+needed[1]);
+    if(blocksindex[0]==-1){
         return false;
     }else{
-        int next_bitmap=nextAvailable(bitmap,true);
-        int bit_i= nextAvailable(bitmap_inode,false);
+        string path="DISKS/";
+        nombre_disco+=".dat";
+        path+=nombre_disco;
+        //getting inodes and filetable
+        char *buffer = new char[sizeof(inode_d)];
+        int inode_pos = nextAvailable(this->bitmap_inode,false);        
+        double move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+sizeof(FileTable_d)*sb.cantofinode
+                +inode_pos*sizeof(inode_d);
+        ifstream in(path.c_str(), ios::in | ios::out | ios::binary);
+        if(!in){
+            cout<<"error al intentar abrir el disco"<<endl;
+            return false;
+        }
+        in.seekg(move_to,ios::beg);
+        in.read(buffer,sizeof(inode_d));
+        inode_d inodo;
+        memcpy((&inodo),buffer,sizeof(inode_d));
+        in.close();
+        int filetable_pos = getNextFreeFileTable();
+        //writing file
+        char *file = new char[(int)size_b];
+        memset(file,'k',size_b*sizeof(char));
+        inodo.blockuse=needed[0]+needed[1];
+        inodo.filesize=size_b;
+        strcpy(ft_array[filetable_pos].name,nombre_archivo.c_str());
+        ft_array[filetable_pos].inode_index=inode_pos;
+        ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
+        if(needed[2]==0){
+            do{
+
+            }while(size_b>0);
+        }
 
     }
-    in.close();
+//    if(caso==1){
+//        return "Archivo guardado exitosamente en caso 1 - "+QString::number(size);
+//    }else if(caso ==2){
+//        return "Archivo guardado exitosamente en caso 2 - "+QString::number(size);
+//    }else if(caso ==3){
+//        return "Archivo guardado exitosamente en caso 3 - "+QString::number(size);
+//    }else if(caso ==4){
+//        return "Archivo guardado exitosamente en caso 4 - "+QString::number(size);
+//    }else{
+//        return "Archivo demasiado grande para guardar en este FILE SYSTEM";
+//    }
+//    ifstream in(path.c_str(),ios::in | ios::out | ios::binary);
+//    if(!in){
+//        return false;
+//    }else{
+//        int next_bitmap=nextAvailable(bitmap,true);
+//        int bit_i= nextAvailable(bitmap_inode,false);
+
+//    }
+//    in.close();
     return true;
 }
 
@@ -226,6 +327,23 @@ int Disco::nextAvailable(char* bitmap, bool BT_BIF)
         }
     }
     return -1;
+}
+
+vector<double> Disco::getfreeblocks(double blocksneeded)
+{
+    vector<double> array;
+    double num;
+    for(int i =0; i<blocksneeded;i++){
+        num = nextAvailable(bitmap,true);
+        if(num >=0){
+            array[i]=num;
+        }else{
+            array[0]=-1;
+            break;
+        }
+    }
+    return array;
+
 }
 
 QString Disco::getSP(string nombre)
@@ -248,5 +366,31 @@ QString Disco::getSP(string nombre)
                 arg(sp.name).arg(sp.size).arg(sp.cantofblock).arg(sp.freeblock).arg(sp.freespace).arg(sp.sizeofblock).arg(sp.cantofinode).arg(sp.freeinode);
         return text;
     }
+}
+
+int Disco::getNextFreeFileTable()
+{
+    FileTable_d temp;
+    for(int i =0; i<sb.cantofinode;i++){
+        temp=ft_array[i];
+        if(temp.inode_index==-1){
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool Disco::write(char *buffer, double init, double byte_size, string path)
+{
+    ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
+    if(!out){
+        return false;
+    }else{
+        double i = FS_size+(init*sb.sizeofblock);
+        out.seekp(i, ios::beg);
+        out.write(buffer,byte_size);
+        out.close();
+    }
+    return true;
 }
 

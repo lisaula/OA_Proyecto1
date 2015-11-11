@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <cstring>
 #include<QDir>
+#include<math.h>
 
 using namespace std;
 
@@ -22,13 +23,12 @@ typedef struct superBlock{
 
 typedef struct inode{
     char permisos[10];
-    int filesize;
-    int blockuse;
     int directos[10];
+    double filesize;
+    double blockuse;
     int indirectossimples;
     int indirectosdobles;
     int indirectostriples;
-
 }inode_d;
 
 typedef struct FileTable{
@@ -46,19 +46,24 @@ public:
     double FS_size;
     int FS_blockused,bit_inode_size,bitmap_size;
     bool mount(string nombre);
-    bool guardararchivo(string nombre, double size);
+    vector<double> fileVerification(double size_of_file);
+    bool guardararchivo(string nombre_disco, double size, string nombre_archivo);
     int nextAvailable(char *bitmap, bool BT_BIF);
+    vector<double> getfreeblocks(double blocksneeded);
     QString getSP(string nombre);
     char name[10];
     double disksizemb, disksizebyte;
-    int blocksize;
+    int getNextFreeFileTable();
+    int blocksize; double block_utilized;
     char block;
+    bool write(char* buffer, double init, double byte_size, string path);
     superBlock_d sb;
     char *bitmap;
     char *bitmap_inode;
     FileTable_d *ft_array;
     bool crearDisco(string nombre, double disksizeMb, double blocksizeB);
     Disco();
+    bool writeIS(char* buffer, double size_buffer, string diskname, vector<double>blocksindex);
 };
 
 #endif // DISCO_H
