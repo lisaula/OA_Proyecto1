@@ -49,26 +49,30 @@ public:
     vector<double> fileVerification(double size_of_file);
     bool guardararchivo(string nombre_disco, double size, string nombre_archivo);
     int nextAvailable(char *&bitmap, bool BT_BIF);
-    vector<double> getfreeblocks(double blocksneeded);
+    vector<double> getfreeblocks(double blocksneeded);    //bool writeIS(char * file, double size_file, string diskname, vector<double>blocksindex, inode_d &inodo, double B_IS);
     QString getSP(string nombre);
     char name[10];
     double disksizemb, disksizebyte;
     int getNextFreeFileTable();
     int blocksize; double block_utilized;
-    char block;
     bool write(char* buffer, double init, double byte_size, string path);
     superBlock_d sb;
     char *bitmap;
     char *bitmap_inode;
-    bool writeIS(char * file, double size_file, string diskname, vector<double>blocksindex, inode_d &inodo, double B_IS);
+    inode_d global;
+    string path;
+    bool crearBloqueFT();
+    void cd(string nombre);
+    inode_d seekInode(double num, string path);
+    void setFiletables(double numBlock, string path);
     FileTable_d *ft_array;
     bool crearDisco(string nombre, double disksizeMb, double blocksizeB);
+    double seek(string nombre);
+    void saveFileInDir(string nombre, double inodenumdir, double inodenumFile, string path);
+    bool createDir(string diskname, string nombreDir);
     void memcpybuffer(char *&dest, char* src, int sizeblock, double init, double size_src);
     bool writeFile(char *file, double size_file, string diskname, vector<double>blocksindex, inode_d &inodo, vector<double> needed);
     Disco();
-    bool writeDS(char* file, double size_file, string diskname, vector<double>blocksindex, inode_d &inodo);
-    bool writeDS2(char *file, double size_file, string diskname, vector<double>blocksindex, double*directos);
-
 };
 
 #endif // DISCO_H

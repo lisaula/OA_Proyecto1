@@ -66,14 +66,15 @@ bool Disco::crearDisco(string nombre, double disksizeMb, double blocksizeB)
     //ESCRIBIENDO INODES
     FS_size= sizeof(superBlock)+sizeof(bitmap)+sizeof(bitmapInode)+(sizeof(FileTable_d)*SP.cantofinode)+
             (sizeof(inode_d)*SP.cantofinode);
-    FS_blockused=FS_size/blocksize;
-    FS_blockused+=1;
+    FS_blockused=ceil(FS_size/blocksize);
+    cout<<"FS ceil "<<FS_blockused<<endl;
+    //FS_blockused+=1;
     inode_d a;
     strcpy(a.permisos,"drwxrwxrwx");
     a.blockuse=1;
     a.filesize=0;
     //memset(a.directos,-1,10);
-    a.directos[0]=FS_blockused+=1;a.directos[1]=-1;
+    a.directos[0]=FS_blockused;a.directos[1]=-1;
     a.directos[2]=-1;a.directos[3]=-1;
     a.directos[4]=-1;a.directos[5]=-1;
     a.directos[6]=-1;a.directos[7]=-1;
@@ -81,12 +82,12 @@ bool Disco::crearDisco(string nombre, double disksizeMb, double blocksizeB)
     a.indirectossimples=-1;
     a.indirectosdobles=-1;
     a.indirectostriples=-1;
+    //setFiletables(FS_blockused,path);
     output_file.write((char*)&a,sizeof(inode_d));
 
     strcpy(a.permisos,"-rwxrwxrwx");
     a.blockuse=0;
     a.directos[0]=-1;
-
     for(int x =0; x<SP.cantofinode-1;x++){
         output_file.write((char*)&a,sizeof(inode_d));
     }
@@ -98,8 +99,8 @@ bool Disco::crearDisco(string nombre, double disksizeMb, double blocksizeB)
     output_file.write((char*)&SP,sizeof(superBlock));
 
     //actualizando bitmap
-    cout<<"set blocks en uso del FS "<<FS_blockused<<ends;
-    for(int i =0; i<FS_blockused;i++){
+    cout<<"set blocks en uso del FS "<<FS_blockused<<endl;
+    for(int i =0; i<=FS_blockused;i++){
         setBlock_use(bitmap,i);
     }
     output_file.write((bitmap),sizeof(bitmap));
@@ -107,15 +108,82 @@ bool Disco::crearDisco(string nombre, double disksizeMb, double blocksizeB)
     setBlock_use(bitmapInode,0);
     output_file.write(((char*)bitmapInode),sizeof(bitmapInode));
     output_file.close();
+    cout<<"Fin crear disco"<<endl;
     return true;
+}
+
+double Disco::seek(string nombre)
+{
+    for(int i =0; sb.cantofinode;i++){
+        if(strcmp(ft_array[i].name,nombre.c_str())==0){
+            return ft_array[i].inode_index;
+        }
+    }
+    return -1;
+}
+
+void Disco::saveFileInDir(string nombre, double inodenumdir, double inodenumFile, string path)
+{
+    //aun no terminada
+    ifstream in(path.c_str(), ios::in | ios::out | ios::binary);
+    double move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+            +(inodenumdir*sizeof(inode_d));
+    char* buffer = new char[sizeof(inode_d)];
+    in.seekg(move_to,ios::beg);
+    in.read(buffer,sizeof(inode_d));
+    inode_d a;
+    memcpy((&a),buffer,sizeof(inode_d));
+
+    char *ftbuffer = new char[sizeof(FileTable_d)];
+    FileTable_d f;
+    bool found=false;
+    for(int i =0; i<10;i++){
+        if(a.directos[i]!=-1){
+            move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+                        +(a.directos[i]*sizeof(inode_d));
+            in.seekg(move_to,ios::beg);
+            for(int m=0; m<floor(sb.sizeofblock/sizeof(FileTable_d));m++){
+                in.read(ftbuffer,sizeof(FileTable_d));
+                memcpy((&f),ftbuffer,sizeof(FileTable_d));
+                if(f.inode_index==-1){
+                    strcpy(f.name,nombre.c_str());
+                    f.inode_index=inodenumFile;
+                    ofstream out(path.c_str(),ios::in | ios::out | ios::binary);
+                    out.seekp(in.tellg(),ios::beg);
+                    out.seekp(-sizeof(FileTable_d),ios::cur);
+                    out.write((char*)&f,sizeof(FileTable_d));
+                    out.close();
+                    found=true;
+                    in.close();
+                    break;
+                }
+            }
+            if(found)
+                break;
+        }
+    }
+    if(!found){
+        if(a.indirectossimples!=-1){
+
+        }
+    }
+    //aun no terminada
+    in.close();
+}
+
+bool Disco::createDir(string diskname, string nombreDir)
+{
+
 }
 
 void Disco::memcpybuffer(char *&dest, char *src, int sizeblock, double init , double size_src)
 {
-    memset(dest,0,sb.sizeofblock*sizeof(char));
+    memset(dest,'F',sb.sizeofblock*sizeof(char));
     for(int i =0; i< sizeblock;i++){
-        if(size_src==init+i)
+        if(size_src==init+i){
+            cout<<"REtorno size src "<<size_src<<" > init "<<init<<" +i"<<+i<<endl;
             return;
+        }
         dest[i]=src[(int)(init+i)];
     }
 }
@@ -124,6 +192,7 @@ bool Disco::writeFile(char *file, double size_file, string diskname, vector<doub
 {
     ofstream out(diskname.c_str(), ios::in | ios:: out | ios::binary);
     cout<<"Size entrada "<<size_file<<endl;
+    double size_entrada=size_file;
     double bloques = blocksindex.size();
     char * buffer = new char[sb.sizeofblock];
     memcpybuffer(buffer,file,sb.sizeofblock,0,size_file);
@@ -138,19 +207,19 @@ bool Disco::writeFile(char *file, double size_file, string diskname, vector<doub
         switch (cont) {
         case 0://DS
             for(int i =0; i< 10 ;i++){
-                if(size_file<0)
+                if(size_file<=0)
                     break;
 
                 move_to = (blocksindex[0]*sb.sizeofblock);
                 out.seekp(move_to, ios::beg);
-                cout<<"MOVE TO "<<out.tellp()<<endl;
+                cout<<"MOVE TO DS "<<out.tellp()<<endl;
                 inodo.directos[i]=blocksindex[0];
                 blocksindex.erase(blocksindex.begin());
                 out.write(buffer,sb.sizeofblock*sizeof(char));
                 cout<<alreadysave<<" already saved"<<endl;
                 alreadysave+=sb.sizeofblock;
                 cout<<alreadysave<<" already saved"<<endl;
-                memcpybuffer(buffer,file,sb.sizeofblock,alreadysave,size_file);
+                memcpybuffer(buffer,file,sb.sizeofblock,alreadysave,size_entrada);
                 cout<<"Size of file al inicio "<<size_file<<endl;
                 size_file-=sb.sizeofblock;
                 cout<<"Size of file "<<size_file<<endl;
@@ -159,25 +228,27 @@ bool Disco::writeFile(char *file, double size_file, string diskname, vector<doub
             if(size_file>0){
                 inodo.indirectossimples = blocksindex[0];
                 double IS_pos=(blocksindex[0]*sb.sizeofblock);
+                cout<<"IS_POS en caso 1 "<<IS_pos<<endl;
+                cout<<"Bloque "<<blocksindex[0]<<endl;
                 blocksindex.erase(blocksindex.begin());
                 double DS[x];
+                //memcpybuffer(buffer,file,sb.sizeofblock,alreadysave,size_file);
                 for(int i =0 ; i <x ;i++ ){
-                    if(size_file<0)
+                    if(size_file<=0)
                         break;
                     move_to = (blocksindex[0]*sb.sizeofblock);
                     out.seekp(move_to, ios::beg);
-                    cout<<"MOVE TO "<<out.tellp()<<endl;
+                    cout<<"MOVE TO IS"<<out.tellp()<<endl;
                     DS[i]=blocksindex[0];
                     blocksindex.erase(blocksindex.begin());
                     out.write(buffer,sb.sizeofblock*sizeof(char));
                     cout<<alreadysave<<" already saved"<<endl;
                     alreadysave+=sb.sizeofblock;
                     cout<<alreadysave<<" already saved"<<endl;
-                    memcpybuffer(buffer,file,sb.sizeofblock,alreadysave,size_file);
+                    memcpybuffer(buffer,file,sb.sizeofblock,alreadysave,size_entrada);
                     cout<<"Size of file al inicio "<<size_file<<endl;
                     size_file-=sb.sizeofblock;
                     cout<<"Size of file "<<size_file<<endl;
-
                 }
                 out.seekp(IS_pos,ios::beg);
                 out.write((char*)&DS,sizeof(DS));
@@ -189,40 +260,103 @@ bool Disco::writeFile(char *file, double size_file, string diskname, vector<doub
             if(size_file>0){
                 inodo.indirectosdobles = blocksindex[0];
                 double ID_pos=(blocksindex[0]*sb.sizeofblock);
+                cout<<"ID_POS en caso 2 "<<ID_pos<<endl;
+                cout<<"Bloque "<<blocksindex[0]<<endl;
                 blocksindex.erase(blocksindex.begin());
                 double ID[x];
                 for(int i =0;i<x;i++){
-                    if(size_file<0)
+                    if(size_file<=0)
                         break;
 
                     ID[i]=blocksindex[0];
 
                     double IS[x];
                     double IS_pos=blocksindex[0]*sb.sizeofblock;
+                    cout<<"IS_POS en caso 2 "<<IS_pos<<endl;
+                    cout<<"Bloque "<<blocksindex[0]<<endl;
                     blocksindex.erase(blocksindex.begin());
                     for(int m =0; m< x; m++){
-                        if(size_file<0)
+                        if(size_file<=0)
                             break;
                         move_to = (blocksindex[0]*sb.sizeofblock);
                         out.seekp(move_to, ios::beg);
-                        cout<<"MOVE TO "<<out.tellp()<<endl;
-                        IS[i]=blocksindex[0];
+                        cout<<"MOVE TO ID"<<out.tellp()<<endl;
+                        IS[m]=blocksindex[0];
                         blocksindex.erase(blocksindex.begin());
+                        cout<<blocksindex.size()<<" blocks index size"<<endl;
                         out.write(buffer,sb.sizeofblock*sizeof(char));
                         cout<<alreadysave<<" already saved"<<endl;
                         alreadysave+=sb.sizeofblock;
                         cout<<alreadysave<<" already saved"<<endl;
-                        memcpybuffer(buffer,file,sb.sizeofblock,alreadysave,size_file);
+                        memcpybuffer(buffer,file,sb.sizeofblock,alreadysave,size_entrada);
                         cout<<"Size of file al inicio "<<size_file<<endl;
                         size_file-=sb.sizeofblock;
                         cout<<"Size of file "<<size_file<<endl;
-
                     }
-
+                    out.seekp(IS_pos,ios::beg);
+                    out.write((char*)&IS,sizeof(IS));
                 }
-
+                out.seekp(ID_pos,ios::beg);
+                out.write((char*)&ID,sizeof(ID));
+        }
+            cout<<"ID "<<inodo.indirectosdobles<<endl;
         case 3://IT
+            if(size_file>0){
+                inodo.indirectostriples = blocksindex[0];
+                double IT_pos=(blocksindex[0]*sb.sizeofblock);
+                cout<<"IT_POS en caso 3 "<<IT_pos<<endl;
+                cout<<"Bloque "<<blocksindex[0]<<endl;
+                blocksindex.erase(blocksindex.begin());
+                double IT[x];
+                for(int i =0;i<x;i++){
+                    if(size_file<=0)
+                        break;
 
+                    IT[i]=blocksindex[0];
+
+                    double ID[x];
+                    double ID_pos=blocksindex[0]*sb.sizeofblock;
+                    cout<<"ID_POS en caso 3 "<<ID_pos<<endl;
+                    cout<<"Bloque "<<blocksindex[0]<<endl;
+                    blocksindex.erase(blocksindex.begin());
+                    for(int m =0; m< x; m++){
+                        if(size_file<=0)
+                            break;
+
+                        ID[m]=blocksindex[0];
+
+                        double IS[x];
+                        double IS_pos= blocksindex[0]*sb.sizeofblock;
+                        blocksindex.erase(blocksindex.begin());
+
+                        for(int y =0;y<x;y++){
+                            if(size_file<=0)
+                                break;
+                        move_to = (blocksindex[0]*sb.sizeofblock);
+                        out.seekp(move_to, ios::beg);
+                        cout<<"MOVE TO IT"<<out.tellp()<<endl;
+                        IS[y]=blocksindex[0];
+                        blocksindex.erase(blocksindex.begin());
+                        cout<<blocksindex.size()<<" blocks index size"<<endl;
+                        out.write(buffer,sb.sizeofblock*sizeof(char));
+                        cout<<alreadysave<<" already saved"<<endl;
+                        alreadysave+=sb.sizeofblock;
+                        cout<<alreadysave<<" already saved"<<endl;
+                        memcpybuffer(buffer,file,sb.sizeofblock,alreadysave,size_entrada);
+                        cout<<"Size of file al inicio "<<size_file<<endl;
+                        size_file-=sb.sizeofblock;
+                        cout<<"Size of file "<<size_file<<endl;
+                        }
+                        out.seekp(IS_pos,ios::beg);
+                        out.write((char*)&IS,sizeof(IS));
+                    }
+                    out.seekp(ID_pos,ios::beg);
+                    out.write((char*)&ID,sizeof(ID));
+                }
+                out.seekp(IT_pos,ios::beg);
+                out.write((char*)&IT,sizeof(IT));
+        }
+            cout<<"IT "<<inodo.indirectosdobles<<endl;
             break;
         default:
             cout<<"Archivo demasiado grande para guardar en el inodo"<<endl;
@@ -255,97 +389,9 @@ Disco::Disco()
     blocksize=0;
     disksizebyte=0;
     block_utilized=0;
+    path ="";
 }
 
-bool Disco::writeDS(char *file, double size_file, string diskname, vector<double> blocksindex, inode_d &inodo)
-{
-    cout<<"DISK NAME "<<diskname<<endl;
-    ofstream out(diskname.c_str(), ios::in | ios:: out | ios::binary);
-    cout<<"FSSIZE "<<FS_size<<endl;
-    cout<<"FS SIZE /SIze of block "<<FS_size/sb.sizeofblock<<endl;
-    cout<<"Size entrada "<<size_file<<endl;
-    double bloques = blocksindex.size();
-    if(!out){
-        return false;
-    }else{
-        double move_to=0;
-        double cont = 0;
-
-        do{
-            move_to = (blocksindex[cont]*sb.sizeofblock);
-            out.seekp(move_to, ios::beg);
-            cout<<"MOVE TO "<<out.tellp()<<endl;
-            inodo.directos[(int)cont]=blocksindex[cont];
-            cout<<cont<<" contador"<<endl;
-            if(cont==bloques-2){
-                cout<<"ENTRO -2"<<endl;
-//                if(size_file>=sb.sizeofblock*sizeof(char)){
-//                    cout<<"ENTRO S > SOB "<<size_file<<" "<<sb.sizeofblock*sizeof(char)<<endl;
-//                    out.write(file,sb.sizeofblock*sizeof(char));
-//                    cont++;
-//                    size_file-=sb.sizeofblock*sizeof(char);
-//                    cout<<"Size of file dentro "<<size_file<<endl;
-//                }else{
-                    cout<<"Size of file dentro "<<size_file<<endl;
-                    out.write(file,size_file*sizeof(char));
-                    cont++;
-                    size_file-=size_file*sizeof(char);
-                    cout<<"entro"<<endl;
-                //}
-            }else{
-            out.write(file,sb.sizeofblock*sizeof(char));
-            cont++;
-            cout<<"Size of file al inicio "<<size_file<<endl;
-            size_file-=sb.sizeofblock*sizeof(char);
-            cout<<"Size of file "<<size_file<<endl;
-            }
-        }while(size_file>0);
-        cout<<"Size of file "<<size_file<<endl;
-        cout<<"Imprime directos simples dentro de writeDS"<<endl;
-        for(int i =0; i<10;i++){
-            cout<<inodo.directos[i]<<" "<<ends;
-        }
-    }
-    cout<<endl;
-    out.close();
-    return true;
-
-}
-
-bool Disco::writeDS2(char *file, double size_file, string diskname, vector<double> blocksindex, double *directos)
-{
-    cout<<"DISK NAME "<<diskname<<endl;
-    ofstream out(diskname.c_str(), ios::in | ios:: out | ios::binary);
-    cout<<"File SIZE "<<size_file<<endl;
-    cout<<"File SIZE /SIze of block "<<size_file/sb.sizeofblock<<endl;
-    double bloques = blocksindex.size();
-    if(!out){
-        return false;
-    }else{
-        double move_to=0;
-        for(double i =0; i< blocksindex.size();i++){
-            move_to = (blocksindex[i]*sb.sizeofblock);
-            out.seekp(move_to, ios::beg);
-            cout<<"MOVE TO "<<out.tellp()<<endl;
-            directos[(int)i]=blocksindex[i];
-            if(i==bloques-2){
-            out.write(file,size_file*sizeof(char));
-            size_file-=size_file*sizeof(char);
-            }else{
-            out.write(file,sb.sizeofblock*sizeof(char));
-            size_file-=sb.sizeofblock*sizeof(char);
-            }
-        }
-        cout<<"Size of file "<<size_file<<endl;
-        cout<<"Imprime directos simples dentro de writeDS"<<endl;
-        for(int i =0; i<10;i++){
-            cout<<directos[i]<<" "<<ends;
-        }
-    }
-    cout<<endl;
-    out.close();
-    return true;
-}
 
 bool Disco::is_block_in_use(char* bitmap, int blocknum)
 {
@@ -377,6 +423,7 @@ bool Disco::mount(string nombre)
     string path="DISKS/";
     nombre+=".dat";
     path+=nombre;
+    this->path=path;
     ifstream in(path.c_str(),ios::in | ios::out | ios::binary);
     if(!in){
         return false;
@@ -408,8 +455,8 @@ bool Disco::mount(string nombre)
     FS_size= sizeof(superBlock)+bitmap_size*sizeof(char)+bit_inode_size*sizeof(char)+(sizeof(FileTable_d)*sb.cantofinode)+
             (sizeof(inode_d)*sb.cantofinode);
     blocksize=sb.sizeofblock;
-    FS_blockused=FS_size/blocksize;
-    FS_blockused+=2;
+    FS_blockused=ceil(FS_size/blocksize);
+    FS_blockused+=1;
     block_utilized=sb.cantofblock-sb.freeblock;
 //    cout<<"PRUEBAAAAAAAA"<<endl;
 //    cout<<"FS_blockused "<<FS_blockused<<endl;
@@ -421,6 +468,8 @@ bool Disco::mount(string nombre)
     cout<<"ES bloque numero "<<FS_blockused+1<<" en uso "<<is_block_in_use(bitmap,FS_blockused+1)<<endl;
     //cout<<"NEXT AVAILABLE "<<nextAvailable(bitmap,true)<<endl;
     in.close();
+    cd("root");
+    cout<<"global  "<<global.directos[0]<<endl;
     return true;
 }
 
@@ -428,7 +477,7 @@ vector<double> Disco::fileVerification(double size_of_file)
 {
     cout<<"ENtro"<<endl;
     cout<<"SIZE OF BLOcks "<<sb.sizeofblock<<endl;
-    double blocks= sb.sizeofblock/4;
+    double blocks= sb.sizeofblock/8;
     cout<<"BLOCKS "<<blocks<<endl;
     double aditional_blocks=0;
     double data_blocks = ceil(size_of_file/sb.sizeofblock);
@@ -525,8 +574,14 @@ bool Disco::guardararchivo(string nombre_disco, double size, string nombre_archi
                 cout<<" esta usado "<<is_block_in_use(bitmap_inode,filetable_pos)<<endl;
                 //writing file
                 char *file = new char[(int)size_b];
-                memset(file,'k',size_b*sizeof(char));
-                inodo.blockuse=needed[0]+needed[1];
+                //borrar esto luego
+                strcpy(file,"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"//123456789012345678901234567890123456789012345678901234567890");
+                            "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
+                            "123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
+                );
+                       //hasta aqui
+                //memset(file,'k',size_b*sizeof(char));
+                inodo.blockuse=needed[0];
                 inodo.filesize=size_b;
                 strcpy(ft_array[(int)filetable_pos].name,nombre_archivo.c_str());
                 ft_array[(int)filetable_pos].inode_index=inode_pos;
@@ -556,9 +611,29 @@ bool Disco::guardararchivo(string nombre_disco, double size, string nombre_archi
                     }
 
                 }else if(needed[2]==2){
-
+                    if(writeFile(file,size_b,path,blocksindex,inodo,needed)){//writeDS(file,size_b,path,blocksindex,inodo)
+                        cout<<"Archivo guardado en Indirecto Dobles"<<endl;
+                        cout<<"Imprime directos simples afuera de writeDS"<<endl;
+                        for(int i =0; i<10;i++){
+                            cout<<inodo.directos[i]<<" "<<ends;
+                        }
+                        cout<<endl;
+                    }else{
+                        cout<<"Error al guardar el archivo"<<endl;
+                        return false;
+                    }
                 }else if(needed[2]==3){
-
+                    if(writeFile(file,size_b,path,blocksindex,inodo,needed)){//writeDS(file,size_b,path,blocksindex,inodo)
+                        cout<<"Archivo guardado en Indirecto Triples"<<endl;
+                        cout<<"Imprime directos simples afuera de writeDS"<<endl;
+                        for(int i =0; i<10;i++){
+                            cout<<inodo.directos[i]<<" "<<ends;
+                        }
+                        cout<<endl;
+                    }else{
+                        cout<<"Error al guardar el archivo"<<endl;
+                        return false;
+                    }
                 }else{
                     cout<<"Archivo muy grande para guardar en inodo"<<endl;
                     return false;
@@ -680,42 +755,70 @@ bool Disco::write(char *buffer, double init, double byte_size, string path)
     return true;
 }
 
-bool Disco::writeIS(char* file, double size_file, string diskname, vector<double>blocksindex, inode_d &inodo, double B_IS)
+bool Disco::crearBloqueFT()
 {
-    cout<<"DISK NAME "<<diskname<<endl;
-    ofstream out(diskname.c_str(), ios::in | ios:: out | ios::binary);
-    cout<<"FSSIZE "<<FS_size<<endl;
-    cout<<"FS SIZE /SIze of block "<<FS_size/sb.sizeofblock<<endl;
-    double bloques = blocksindex.size();
-    if(!out){
-        return false;
-    }else{
-        double move_to=0;
-        double cont = 0;
-
-        do{
-            move_to = (blocksindex[cont]*sb.sizeofblock);
-            out.seekp(move_to, ios::beg);
-            cout<<"MOVE TO "<<out.tellp()<<endl;
-            inodo.directos[(int)cont]=blocksindex[cont];
-            if(cont==bloques-2){
-            out.write(file,size_file*sizeof(char));
-            cont++;
-            size_file-=size_file*sizeof(char);
-            }else{
-            out.write(file,sb.sizeofblock*sizeof(char));
-            cont++;
-            size_file-=sb.sizeofblock*sizeof(char);
-            }
-        }while(size_file>0);
-        cout<<"Size of file "<<size_file<<endl;
-        cout<<"Imprime directos simples dentro de writeDS"<<endl;
-        for(int i =0; i<10;i++){
-            cout<<inodo.directos[i]<<" "<<ends;
+    vector<double>bloque;
+    bool found = false;
+    for(int i =0; i<10 ;i++){
+        if(global.directos[i]==-1){
+            bloque = getfreeblocks(1);
+            global.directos[i]=bloque[0];
+            setFiletables(bloque[0],path);
+            found=true;
+            return true;
         }
     }
-    cout<<endl;
+    if(!found){
+        if(global.indirectossimples==-1){
+            bloque = getfreeblocks(2);
+            global.indirectossimples =bloque[0];
+            int x = sb.sizeofblock/8;
+            double IS[x];
+            double IS_pos = bloque[0]*sb.sizeofblock;
+            bloque.erase(bloque.begin());
+            for(int i =0; i< x;i++){
+                setFiletables(bloque[0],path);
+            }
+        }
+    }
+
+}
+
+void Disco::cd(string nombre)
+{
+    double num = seek(nombre);
+    if(num <0 ){
+        cout<<"No existe registro de nombre "<<nombre<<endl;
+    }else{
+        global =seekInode(num,path);
+    }
+}
+
+inode_d Disco::seekInode(double num, string path)
+{
+    ifstream in(path.c_str(), ios::in | ios::out | ios:: binary);
+    double move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+            +(num*sizeof(inode_d));
+    in.seekg(move_to,ios::beg);
+    char *buffer = new char[sizeof(inode_d)];
+    in.read(buffer, sizeof(inode_d));
+    inode_d a;
+    memcpy((&a),buffer,sizeof(inode_d));
+    return a;
+}
+
+void Disco::setFiletables(double numBlock, string path)
+{
+    ofstream out(path.c_str(), ios::in| ios::out | ios::binary);
+    double pos = numBlock*sb.sizeofblock;
+    out.seekp(pos,ios::beg);
+    FileTable_d ft;
+    memset(ft.name,0,20);
+    ft.inode_index=-1;
+    double cant = sb.sizeofblock/sizeof(FileTable_d);
+    for(int i =0; i< floor(cant); i++){
+        out.write((char*)&ft,sizeof(FileTable_d));
+    }
     out.close();
-    return true;
 }
 
