@@ -71,10 +71,11 @@ bool Disco::crearDisco(string nombre, double disksizeMb, double blocksizeB)
     //FS_blockused+=1;
     inode_d a;
     strcpy(a.permisos,"drwxrwxrwx");
-    a.blockuse=1;
+    a.blockuse=0;
     a.filesize=0;
     //memset(a.directos,-1,10);
-    a.directos[0]=FS_blockused;a.directos[1]=-1;
+    //FS_blockused
+    a.directos[0]=-1;a.directos[1]=-1;
     a.directos[2]=-1;a.directos[3]=-1;
     a.directos[4]=-1;a.directos[5]=-1;
     a.directos[6]=-1;a.directos[7]=-1;
@@ -100,7 +101,7 @@ bool Disco::crearDisco(string nombre, double disksizeMb, double blocksizeB)
 
     //actualizando bitmap
     cout<<"set blocks en uso del FS "<<FS_blockused<<endl;
-    for(int i =0; i<=FS_blockused;i++){
+    for(int i =0; i<FS_blockused;i++){
         setBlock_use(bitmap,i);
     }
     output_file.write((bitmap),sizeof(bitmap));
@@ -132,58 +133,43 @@ double Disco::seek(string nombre)
     return -1;
 }
 
-void Disco::saveFileInDir(string nombre, double inodenumdir, double inodenumFile, string path)
+void Disco::saveFileInDir(string nombre, double inodenumdir)
 {
-    //aun no terminada
-    ifstream in(path.c_str(), ios::in | ios::out | ios::binary);
-    double move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
-            +(inodenumdir*sizeof(inode_d));
-    char* buffer = new char[sizeof(inode_d)];
-    in.seekg(move_to,ios::beg);
-    in.read(buffer,sizeof(inode_d));
-    inode_d a;
-    memcpy((&a),buffer,sizeof(inode_d));
+    FileTable_d ft;
+    strcpy(ft.name,nombre.c_str());
+    ft.inode_index=inodenumdir;
+    if(sizeof(FileTable_d)>sb.sizeofblock){
+        char * tempbuffer = new char[sb.sizeofblock];
+        double t = ceil(sizeof(FileTable_d)/sb.sizeofblock);
+        double temp=0;
+        double size_temp=sizeof(FileTable_d);
+        cout<<"t "<<t<<endl;
+        for(int i =0;i<2;i++){
+           if(size_temp<=0)
+               break;
 
-    char *ftbuffer = new char[sizeof(FileTable_d)];
-    FileTable_d f;
-    bool found=false;
-    for(int i =0; i<10;i++){
-        if(a.directos[i]!=-1){
-            move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
-                        +(a.directos[i]*sizeof(inode_d));
-            in.seekg(move_to,ios::beg);
-            for(int m=0; m<floor(sb.sizeofblock/sizeof(FileTable_d));m++){
-                in.read(ftbuffer,sizeof(FileTable_d));
-                memcpy((&f),ftbuffer,sizeof(FileTable_d));
-                if(f.inode_index==-1){
-                    strcpy(f.name,nombre.c_str());
-                    f.inode_index=inodenumFile;
-                    ofstream out(path.c_str(),ios::in | ios::out | ios::binary);
-                    out.seekp(in.tellg(),ios::beg);
-                    out.seekp(-sizeof(FileTable_d),ios::cur);
-                    out.write((char*)&f,sizeof(FileTable_d));
-                    out.close();
-                    found=true;
-                    in.close();
-                    break;
-                }
-            }
-            if(found)
-                break;
+           memcpybuffer(tempbuffer,(char*)&ft,sb.sizeofblock,temp,sizeof(FileTable_d));
+           temp+=sb.sizeofblock;
+           if(size_temp>sb.sizeofblock){
+                writeBloque(tempbuffer,global,sb.sizeofblock,"drwxrwxrwx");
+           }else{
+                writeBloque(tempbuffer,global,size_temp,"drwxrwxrwx");
+           }
+           size_temp-=sb.sizeofblock;
+           cout<<i<<endl;
         }
+    }else{
+        writeBloque((char*)&ft,global,sizeof(FileTable_d),"drwxrwxrwx");
     }
-    if(!found){
-        if(a.indirectossimples!=-1){
-
-        }
-    }
-    //aun no terminada
-    in.close();
 }
 
-bool Disco::createDir(string diskname, string nombreDir)
+double Disco::seekByIndexInode(double index)
 {
-
+ for(int i =0; i<sb.cantofinode;i++){
+     if(ft_array[i].inode_index==index)
+         return i;
+ }
+ return -1;
 }
 
 void Disco::memcpybuffer(char *&dest, char *src, int sizeblock, double init , double size_src)
@@ -1486,10 +1472,71 @@ bool Disco::crearBloqueFT()
 bool Disco::mkDir(string nombre)
 {
     if(sb.freeinode>0){
+        char *buffer = new char[sizeof(inode_d)];
+        int inode_pos = nextAvailable(bitmap_inode,false);
+        double move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+                +(inode_pos*sizeof(inode_d));
+        read(buffer,move_to,sizeof(inode_d));
+        inode_d inodo;
+        memcpy((&inodo),buffer,sizeof(inode_d));
+        int f_pos = getNextFreeFileTable();
+        FileTable_d ft;
+        strcpy(ft.name,nombre.c_str());
+        ft.inode_index=inode_pos;
+        ft_array[f_pos]=ft;
+        cout<<"Inode pos "<<inode_pos<<" fpos "<<f_pos<<endl;
+        inodo.blockuse=1;
+        inodo.filesize=0;
+        strcpy(inodo.permisos,"drwxrwxrwx");
+        int d =sizeof(FileTable_d);
+        cout<<"Size of "<<sizeof(FileTable_d)<<" > sizeblock "<<sb.sizeofblock<<" div "<<ceil(d/sb.sizeofblock)<<endl;
+        if(sizeof(FileTable_d)>sb.sizeofblock){
+            char * tempbuffer = new char[sb.sizeofblock];
+            double t = ceil(sizeof(FileTable_d)/sb.sizeofblock);
+            double temp=0;
+            double size_temp=sizeof(FileTable_d);
+            cout<<"t "<<t<<endl;
+            for(int i =0;i<2;i++){
+               if(size_temp<=0)
+                   break;
 
+               memcpybuffer(tempbuffer,(char*)&ft,sb.sizeofblock,temp,sizeof(FileTable_d));
+               temp+=sb.sizeofblock;
+               if(size_temp>sb.sizeofblock){
+                    writeBloque(tempbuffer,global,sb.sizeofblock,"drwxrwxrwx");
+               }else{
+                    writeBloque(tempbuffer,global,size_temp,"drwxrwxrwx");
+               }
+               size_temp-=sb.sizeofblock;
+               cout<<i<<endl;
+            }
+        }else{
+            writeBloque((char*)&ft,global,sizeof(FileTable_d),"drwxrwxrwx");
+        }
+        ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
+        //actualizando super block
+        sb.freeinode--;
+        out.write((char*)&sb,sizeof(superBlock_d));
+
+        //actualizando bitmap
+        out.write(bitmap,bitmap_size*sizeof(char));
+        //actualizando bitmap de inodes
+        out.write(bitmap_inode,bit_inode_size*sizeof(char));
+        //actualizando filetable
+        double ftb_pos = f_pos*sizeof(FileTable_d);
+        out.seekp(ftb_pos,ios::cur);
+        out.write((char*)&ft,sizeof(FileTable_d));
+        //actualizando inodo
+        out.seekp(move_to,ios::beg);
+        out.write(((char*)&inodo),sizeof(inode_d));
+        out.seekp(global_pos,ios::beg);
+        out.write((char*)&global,sizeof(inode_d));
+        out.close();
+        return true;
     }else{
         cout<<"No hay inodos disponibles "<<endl;
     }
+    return false;
 }
 
 void Disco::cd(string nombre)
@@ -1498,7 +1545,15 @@ void Disco::cd(string nombre)
     if(num <0 ){
         cout<<"No existe registro de nombre "<<nombre<<endl;
     }else{
-        global =seekInode(num,path);
+        inode t =seekInode(num,path);
+        if(t.permisos[0]=='d'){
+        global =t;
+        global_pos =sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+                +(num*sizeof(inode_d));
+
+        }else{
+            cout<<"No es un directorio valido"<<endl;
+        }
     }
 }
 
@@ -1579,6 +1634,7 @@ bool Disco::mkFile(double size_file, string file_name)
                            }
                            size_file-=sb.sizeofblock;
                        }
+                       saveFileInDir(file_name,inode_pos);
                        ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
                        //actualizando super block
                        sb.freeblock-=(needed[0]+needed[1]);

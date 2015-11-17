@@ -62,6 +62,7 @@ public:
     char *bitmap;
     char *bitmap_inode;
     inode_d global;
+    double global_pos=0;
     bool nameExist(string nombre);
     string path;
     bool crearBloqueFT();
@@ -74,8 +75,8 @@ public:
     bool crearDisco(string nombre, double disksizeMb, double blocksizeB);
     int getFreePosInArray(double * array, int size);
     double seek(string nombre);
-    void saveFileInDir(string nombre, double inodenumdir, double inodenumFile, string path);
-    bool createDir(string diskname, string nombreDir);
+    void saveFileInDir(string nombre, double inodenumdir);
+    double seekByIndexInode(double index);
     void memcpybuffer(char *&dest, char* src, int sizeblock, double init, double size_src);
     bool writeFile(char *file, double size_file, string diskname, vector<double>blocksindex, inode_d &inodo, vector<double> needed);
     bool read(char *&buffer, double init, double bytesToRead);

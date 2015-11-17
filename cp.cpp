@@ -124,7 +124,16 @@ QString CP::parseLogic(vector<string> parse)
             text+="Especifique path";
         }
     }else if(m && parse[0]=="mkdir" && parse.size()==2){
-        text+=QString("Creo archivo %1").arg(parse[1].c_str());
+        string nombre =parse[1];
+        if(nombre.size()>20){
+            text+="No se admiten archivos con nombres mayor a 20 caracteres";
+        }else{
+            if(disk->mkDir(nombre)){
+                text+=QString("Creo archivo %1").arg(parse[1].c_str());
+            }else{
+                text+="Error al intentar crear directorio";
+            }
+        }
     }else if(m && parse[0]=="mkfile" && parse.size()==3){
         string nombre = parse[1];
         if(nombre.size()>20){
