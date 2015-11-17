@@ -112,6 +112,16 @@ bool Disco::crearDisco(string nombre, double disksizeMb, double blocksizeB)
     return true;
 }
 
+int Disco::getFreePosInArray(double *array, int size)
+{
+    for(int i =0; i< size; i++ ){
+        if(array[i]<0){
+            return i;
+        }
+    }
+    return -1;
+}
+
 double Disco::seek(string nombre)
 {
     for(int i =0; sb.cantofinode;i++){
@@ -178,7 +188,7 @@ bool Disco::createDir(string diskname, string nombreDir)
 
 void Disco::memcpybuffer(char *&dest, char *src, int sizeblock, double init , double size_src)
 {
-    memset(dest,'F',sb.sizeofblock*sizeof(char));
+    memset(dest,'F',sizeblock*sizeof(char));
     for(int i =0; i< sizeblock;i++){
         if(size_src==init+i){
             cout<<"REtorno size src "<<size_src<<" > init "<<init<<" +i"<<+i<<endl;
@@ -375,6 +385,41 @@ bool Disco::writeFile(char *file, double size_file, string diskname, vector<doub
 
 }
 
+bool Disco::read(char * &buffer, double init, double bytesToRead)
+{
+    ifstream in(path.c_str(), ios::in | ios::out | ios::binary);
+    in.seekg(init,ios::beg);
+    in.read(buffer,bytesToRead);
+    in.close();
+}
+
+int Disco::getLastIDIS(double *ID, double *&IS, int x)
+{
+    char *buf = new char[x*sizeof(double)];
+    bool t=false;
+    for(int i =0; i < x;i++){
+        cout<<"cont i "<<i<<endl;
+        cout<<"No entra "<<ID[i]<<endl;
+        if(ID[i]!=-1){
+            cout<<"Entro"<<endl;
+            read(buf,ID[i]*sb.sizeofblock,sb.sizeofblock);
+            cout<<"PASOOOOO"<<endl;
+            memcpy((IS),buf,x*sizeof(double));
+            cout<<"Paso "<<endl;
+            for(int m =0; m <x;m++){
+                cout<<"cont m "<<m<<endl;
+                if(IS[m]==-1){
+                    return i;
+                }
+            }
+        }else{
+            cout<<"Retorno esto "<<i<<endl;
+            return i;
+        }
+    }
+    return -1;
+}
+
 Disco::Disco()
 {
     cout<<"Size of name"<<sizeof(name)<<endl;
@@ -390,6 +435,7 @@ Disco::Disco()
     disksizebyte=0;
     block_utilized=0;
     path ="";
+    srand(NULL);
 }
 
 
@@ -467,6 +513,15 @@ bool Disco::mount(string nombre)
     cout<<"ES bloque numero "<<FS_blockused<<" en uso "<<is_block_in_use(bitmap,FS_blockused)<<endl;
     cout<<"ES bloque numero "<<FS_blockused+1<<" en uso "<<is_block_in_use(bitmap,FS_blockused+1)<<endl;
     //cout<<"NEXT AVAILABLE "<<nextAvailable(bitmap,true)<<endl;
+    //borrar
+    char * buftemp = new char[sb.sizeofblock];
+    double n[2];
+    read(buftemp,4393*sb.sizeofblock,sb.sizeofblock);
+    memcpy(&n,buftemp,sb.sizeofblock);
+    for(int i =0;i<2;i++){
+        cout<<n[i]<<ends;
+    }
+    //hasta aqui
     in.close();
     cd("root");
     cout<<"global  "<<global.directos[0]<<endl;
@@ -531,8 +586,8 @@ bool Disco::guardararchivo(string nombre_disco, double size, string nombre_archi
     double size_b = (size);
     vector<double>needed = fileVerification(size_b);
     cout<<"devolvio "<<needed[0]+needed[1]<<endl;
-    if(needed[2]==-1 && sb.freeinode>0){
-        cout<<"archivo muy grande para guardar en inodo"<<endl;
+    if(needed[2]==-1 || sb.freeinode>0){
+        cout<<"archivo muy grande para guardar en inodo o no hay inodos disponibles"<<endl;
         return false;
     }else{
         vector<double> blocksindex;
@@ -642,7 +697,7 @@ bool Disco::guardararchivo(string nombre_disco, double size, string nombre_archi
                 //actualizando super block
                 sb.freeblock-=(needed[0]+needed[1]);
                 sb.freeinode--;
-                sb.freespace-=size_b;
+                sb.freespace-=size_b+(needed[1]*sb.sizeofblock);
                 out.write((char*)&sb,sizeof(superBlock_d));
 
                 //actualizando bitmap
@@ -742,7 +797,641 @@ int Disco::getNextFreeFileTable()
     return -1;
 }
 
-bool Disco::write(char *buffer, double init, double byte_size, string path)
+bool Disco::writeBloque(char *bloque, inode_d &inodo, double size, string permisos)
+{
+    double move_to=0, free_space=0, size_file=size;
+    int x = sb.sizeofblock/8;
+    cout<<"ESCRIBIENDO "<<size<<endl;
+    cout<<"X "<<x<<endl;
+    bool nuevo=false;
+    double ocupados  = inodo.filesize/sb.sizeofblock;
+    strcpy(inodo.permisos,permisos.c_str());
+    cout<<"File size "<<inodo.filesize<<endl;
+    vector<double>blocksindex;
+    cout<<"Inodo blockuse "<<inodo.blockuse<<endl;
+    char *buf = new char[sb.sizeofblock];
+    if(inodo.blockuse==0){
+        blocksindex = getfreeblocks(1);
+        move_to = (blocksindex[0]*sb.sizeofblock);
+        inodo.directos[0]=blocksindex[0];
+        blocksindex.erase(blocksindex.begin());
+        write(bloque, move_to,size);
+        cout<<"Inodo virgen "<<bloque<<endl;
+        size_file -=size;
+    }else{
+        cout<<"I FiSize "<<inodo.filesize<<endl;
+        //double ocupados  = inodo.filesize/sb.sizeofblock;
+        cout<<"Ocuoados "<<ocupados<<endl;
+        if(ocupados<10){
+            double dif = ocupados - floor(ocupados);
+            cout<<"DIF "<<dif<<endl;
+            if(dif ==0 ){
+                blocksindex = getfreeblocks(1);
+                inodo.directos[(int)ocupados]=blocksindex[0];
+                move_to = (blocksindex[0]*sb.sizeofblock);
+                blocksindex.erase(blocksindex.begin());
+                write(bloque,move_to,size);
+                size_file -=size;
+            }else{
+                cout<<"Entro dif !=0"<<endl;
+                free_space = sb.sizeofblock-(sb.sizeofblock*dif);
+                cout<<"FREE Space "<<free_space<<endl;
+                if(free_space >= size){
+                    cout<<"Entro space >size "<<bloque<<endl;
+                    move_to = inodo.directos[(int)ocupados]*sb.sizeofblock + dif*sb.sizeofblock;
+                    write(bloque,move_to,size);
+                    size_file-=size;
+                }else{
+                    memcpybuffer(buf,bloque,free_space,0,sb.sizeofblock);
+                    cout<<"Entro space <size "<<buf<<endl;
+                    move_to = inodo.directos[(int)floor(ocupados)]*sb.sizeofblock + dif*sb.sizeofblock;
+                    cout<<"move to "<<move_to<<endl;
+                    write(buf,move_to,free_space);
+                    //temp = size-free_space;
+                    size_file-=free_space;
+                    if(((free_space+size_file)/sb.sizeofblock)+ocupados<10){
+                        memcpybuffer(buf,bloque,sb.sizeofblock,free_space,sb.sizeofblock);
+                        cout<<"Entro space <size "<<buf<<endl;
+                        blocksindex = getfreeblocks(1);
+                        int pos = floor(ocupados)+1;
+                        inodo.directos[pos]= blocksindex[0];
+                        move_to = blocksindex[0]*sb.sizeofblock;
+                        blocksindex.erase(blocksindex.begin());
+                        write(buf,move_to,size-free_space);
+                        size_file-=(size-free_space);
+                    }else{
+                        nuevo = true;
+                        cout<<"Directos Simples LLenos "<<endl;
+                    }
+                }
+            }//fin indirectos simples
+        }//comienza Indirectos Simples
+        if(size_file>0){
+            cout<<"ENtro IS"<<endl;
+            blocksindex.clear();
+            double IS[x];
+            double IS_pos=0;
+            if(inodo.indirectossimples ==-1){
+                cout<<"Indirectos -1"<<endl;
+                blocksindex = getfreeblocks(1);
+                for(int i =0; i<x;i++){
+                    IS[i]=-1;
+                }
+                inodo.indirectossimples= blocksindex[0];
+                IS_pos = blocksindex[0]*sb.sizeofblock;
+                blocksindex.erase(blocksindex.begin());
+            }else{
+                IS_pos = inodo.indirectossimples*sb.sizeofblock;
+                char * buftem = new char[x*sizeof(double)];
+                read(buftem,IS_pos,sb.sizeofblock);
+                memcpy((&IS),buftem,x*sizeof(double));
+            }
+            for(int i =0; i< x;i++){
+                cout<<"IS pos "<<i<<" "<<IS[i]<<endl;
+            }
+            if(nuevo){
+                cout<<"entro nuevo "<<endl;
+                memcpybuffer(buf,bloque,size_file,size-size_file,sb.sizeofblock);
+                blocksindex = getfreeblocks(1);
+                int pos = getFreePosInArray(IS,x);
+                cout<<"POS EN NUEVO "<<pos<<endl;
+                IS[pos] = blocksindex[0];
+                cout<<IS[pos]<<endl;
+                move_to=blocksindex[0]*sb.sizeofblock;
+                blocksindex.erase(blocksindex.begin());
+                write(buf,move_to,size_file);
+                size_file-=size_file;
+                nuevo = false;
+            }else{
+                if(ocupados < 10 + x){
+                    double dif = ocupados - floor(ocupados);
+                    cout<<"DIF "<<dif<<endl;
+                    ocupados -= 10;
+                    if(dif ==0 ){
+                        blocksindex = getfreeblocks(1);
+                        IS[(int)ocupados]=blocksindex[0];
+                        move_to = (blocksindex[0]*sb.sizeofblock);
+                        blocksindex.erase(blocksindex.begin());
+                        write(bloque,move_to,size);
+                        size_file -=size;
+                    }else{
+                        cout<<"Entro dif !=0"<<endl;
+                        free_space = sb.sizeofblock-(sb.sizeofblock*dif);
+                        cout<<"FREE Space "<<free_space<<endl;
+                        if(free_space >= size){
+                            cout<<"Entro space >size "<<bloque<<endl;
+                            cout<<(int)floor(ocupados)<<" QUE HAY DENTRO "<<IS[(int)floor(ocupados)]<<endl;
+                            move_to = IS[(int)floor(ocupados)]*sb.sizeofblock + dif*sb.sizeofblock;
+                            cout<<"Move to "<<move_to<<endl;
+                            write(bloque,move_to,size);
+                            size_file-=size;
+                        }else{
+                            memcpybuffer(buf,bloque,free_space,0,sb.sizeofblock);
+                            cout<<"Entro space <size "<<buf<<endl;
+                            cout<<ocupados<<" IS QUE HAY DENTRO "<<IS[(int)floor(ocupados)]<<endl;
+                            move_to = IS[(int)floor(ocupados)]*sb.sizeofblock + dif*sb.sizeofblock;
+                            cout<<"move to "<<move_to<<endl;
+                            write(buf,move_to,free_space);
+                            //temp = size-free_space;
+                            size_file-=free_space;
+                            double o = inodo.filesize/sb.sizeofblock;
+                            if(((free_space+size_file)/sb.sizeofblock)+o<10 + x){
+                                memcpybuffer(buf,bloque,sb.sizeofblock,free_space,sb.sizeofblock);
+                                cout<<"Entro space <10 + x "<<buf<<endl;
+                                blocksindex = getfreeblocks(1);
+                                int pos = floor(ocupados)+1;
+                                IS[pos]= blocksindex[0];
+                                move_to = blocksindex[0]*sb.sizeofblock;
+                                blocksindex.erase(blocksindex.begin());
+                                write(buf,move_to,size-free_space);
+                                size_file-=(size-free_space);
+                            }else{
+                                nuevo = true;
+                                cout<<"LLENOS INDIRECTOS SIMPLES"<<endl;
+                            }
+                        }
+                    }
+
+                }
+            }
+            write((char*)&IS,IS_pos,sb.sizeofblock);
+        }//aqui comienza Indirectos Dobles
+        if(size_file>0){
+            cout<<"ENtro ID"<<endl;
+            blocksindex.clear();
+            cout<<"X dentro ID "<<x<<endl;
+            double ID[x];
+            double ID_pos=0;
+            double IS[x];
+            double IS_pos=0;
+            int array_pos=0;
+            int array_ISpos=0;
+            double difID=0;
+            ocupados -= 10+x;
+            char *buf = new char[x*sizeof(double)];
+            bool t=false;
+            if(inodo.indirectosdobles ==-1){
+                cout<<"Indirectos -1"<<endl;
+                blocksindex = getfreeblocks(1);
+                for(int i =0; i<x;i++){
+                    ID[i]=-1;
+                    IS[i]=-1;
+                }
+                inodo.indirectosdobles= blocksindex[0];
+                ID_pos = blocksindex[0]*sb.sizeofblock;
+                blocksindex.erase(blocksindex.begin());
+            }else{
+                ID_pos = inodo.indirectosdobles*sb.sizeofblock;
+                char * buftem = new char[x*sizeof(double)];
+                read(buftem,ID_pos,sb.sizeofblock);
+                memcpy((&ID),buftem,x*sizeof(double));
+                cout<<"entro"<<endl;
+                difID = (ocupados)- (floor(ocupados));
+                array_pos = floor(ocupados/x);
+                if(ID[array_pos]==-1){
+                    for(int i =0; i<x;i++){
+                        IS[i]=-1;
+                    }
+                }else{
+                    IS_pos=ID[array_pos]*sb.sizeofblock;
+                    read(buftem,IS_pos,sb.sizeofblock);
+                    memcpy((&IS),buftem,x*sizeof(double));
+                }
+                if(ocupados>=x){
+
+                    array_ISpos = floor(ocupados-x);
+                }else{
+                    array_ISpos = floor(ocupados);
+                }
+
+                cout<<"ocupados "<<ocupados<<endl;
+                cout<<"DIFID "<<difID<<endl;
+                cout<<"Array ISPOS "<<array_ISpos<<endl;
+            }
+            cout<<"Array pos "<<array_pos<<endl;
+            for(int i =0; i< x;i++){
+                cout<<"ID pos "<<i<<" "<<ID[i]<<endl;
+                for(int i =0; i<x;i++){
+                    cout<<"IS pos "<<i<<" "<<IS[i]<<endl;
+                }
+            }
+            if(nuevo){
+                cout<<"entro nuevo "<<endl;
+                blocksindex = getfreeblocks(1);
+                ID[array_pos]=blocksindex[0];
+                IS_pos = blocksindex[0]*sb.sizeofblock;
+                blocksindex.erase(blocksindex.begin());
+                memcpybuffer(buf,bloque,size_file,size-size_file,sb.sizeofblock);
+                //blocksindex = getfreeblocks(1);
+                int pos = getFreePosInArray(IS,x);
+                cout<<"POS EN NUEVO "<<pos<<endl;
+                blocksindex = getfreeblocks(1);
+                IS[pos] = blocksindex[0];
+                cout<<IS[pos]<<endl;
+                move_to=blocksindex[0]*sb.sizeofblock;
+                blocksindex.erase(blocksindex.begin());
+                write(buf,move_to,size_file);
+                size_file-=size_file;
+                nuevo = false;
+            }else{
+                if(ocupados < pow(x,2)){
+                    double dif = ocupados - floor(ocupados);
+                    cout<<"ocupados AQUI"<<ocupados<<endl;
+                    cout<<"DIF "<<dif<<endl;
+                    if(dif ==0 ){
+                        if(ID[array_pos]==-1){
+                            blocksindex=getfreeblocks(1);
+                            ID[array_pos]=blocksindex[0];
+                            blocksindex.erase(blocksindex.begin());
+                        }else{
+                            read(buf,ID[array_pos]*sb.sizeofblock,sb.sizeofblock);
+                            memcpy((&IS),buf,x*sizeof(double));
+                            array_ISpos = getFreePosInArray(IS,x);
+                        }
+                        //borrrar aqui
+                        for(int i =0; i< x;i++){
+                            cout<<"IS pos "<<i<<" "<<IS[i]<<endl;
+                        }
+                        cout<<"ARRAY POS "<<array_pos<<endl;
+                        IS_pos=ID[array_pos]*sb.sizeofblock;
+                        blocksindex = getfreeblocks(1);
+//                        if(ocupados>x){
+//                            ocupados-=x;
+//                        }
+                        //
+                        int pos = getFreePosInArray(IS,x);
+                        cout<<"POS EN NUEVO "<<pos<<endl;
+                        IS[array_ISpos] = blocksindex[0];
+                        cout<<IS[pos]<<endl;
+                        move_to=blocksindex[0]*sb.sizeofblock;
+                        cout<<"Move to "<<move_to<<endl;
+                        blocksindex.erase(blocksindex.begin());
+                        write(bloque,move_to,size);
+                        size_file-=size;
+                        //borrar aqui
+                        cout<<"IS "<<endl;
+                        cout<<IS[0]<<endl;
+                        cout<<IS[1]<<endl;
+                    }else{
+                        cout<<"Entro dif !=0"<<endl;
+                        free_space = sb.sizeofblock-(sb.sizeofblock*difID);
+                        cout<<"FREE Space "<<free_space<<endl;
+                        if(free_space >= size){
+                            cout<<"Entro space >size "<<bloque<<endl;
+                            cout<<(int)array_ISpos<<" QUE HAY DENTRO IS"<<IS[(int)array_ISpos]<<endl;
+                            move_to = IS[(int)array_ISpos]*sb.sizeofblock + difID*sb.sizeofblock;
+                            cout<<"Move to "<<move_to<<endl;
+                            cout<<"Bloque "<<bloque<<endl;
+                            write(bloque,move_to,size);
+                            IS_pos = ID[array_pos]*sb.sizeofblock;
+                            size_file-=size;
+                        }else{
+                            memcpybuffer(buf,bloque,free_space,0,sb.sizeofblock);
+                            cout<<"Entro space <size "<<buf<<endl;
+                            cout<<array_ISpos<<" IS QUE HAY DENTRO "<<IS[(int)array_ISpos]<<endl;
+                            move_to = IS[(int)array_ISpos]*sb.sizeofblock + dif*sb.sizeofblock;
+                            cout<<"move to "<<move_to<<endl;
+                            write(buf,move_to,free_space);
+                            size_file-=free_space;
+                            double o = inodo.filesize/sb.sizeofblock;
+                            IS_pos = ID[array_pos]*sb.sizeofblock;
+                            write((char*)IS,IS_pos,sb.sizeofblock);
+                            if(((free_space+size_file)/sb.sizeofblock)+o<10 + x +pow(x,2)){
+                                int nue =getFreePosInArray(IS,x);
+                                if(nue<0){
+                                    if(array_pos<x){
+                                        array_pos++;
+                                        blocksindex = getfreeblocks(1);
+                                        ID[array_pos]= blocksindex[0];
+                                        IS_pos = blocksindex[0]*sb.sizeofblock;
+                                        blocksindex.erase(blocksindex.begin());
+                                        nue=0;
+                                    }
+                                }
+                                memcpybuffer(buf,bloque,sb.sizeofblock,free_space,sb.sizeofblock);
+                                cout<<"Entro space <10 + x + x2 "<<buf<<endl;
+                                blocksindex = getfreeblocks(1);
+                                IS[nue]= blocksindex[0];
+                                move_to = blocksindex[0]*sb.sizeofblock;
+                                blocksindex.erase(blocksindex.begin());
+                                write(buf,move_to,size-free_space);
+                                size_file-=(size-free_space);
+                            }else{
+                                nuevo = true;
+                                cout<<"LLENOS INDIRECTOS dobles"<<endl;
+                            }
+                        }
+                    }
+
+                }else{
+                    cout<<"Llenos Indirectos dobles"<<endl;
+                }
+            }
+            write((char*)IS,IS_pos,sb.sizeofblock);
+            write((char*)ID,ID_pos,sb.sizeofblock);
+        }//aqui comienza indirectos triples
+        if(size_file>0){
+            cout<<"ENtro IT"<<endl;
+            blocksindex.clear();
+            cout<<"X dentro ID "<<x<<endl;
+            double ID[x];
+            double ID_pos=0;
+            double IT[x];
+            double IT_pos=0;
+            double IS[x];
+            double IS_pos=0;
+            int array_pos=0;
+            int array_ISpos=0;
+            int array_IDpos=0;
+            double difID=0;
+            ocupados -= (pow(x,2));
+            char *buf = new char[x*sizeof(double)];
+            bool t=false;
+            if(inodo.indirectostriples ==-1){
+                cout<<"Indirectos -1"<<endl;
+                blocksindex = getfreeblocks(1);
+                for(int i =0; i<x;i++){
+                    ID[i]=-1;
+                    IS[i]=-1;
+                    IT[i]=-1;
+                }
+                inodo.indirectostriples= blocksindex[0];
+                IT_pos = blocksindex[0]*sb.sizeofblock;
+                blocksindex.erase(blocksindex.begin());
+            }else{//Si esta usado...
+                IT_pos = inodo.indirectostriples*sb.sizeofblock;
+                read(buf,IT_pos,sb.sizeofblock);
+                memcpy((&IT),buf,x*sizeof(double));
+
+                cout<<"entro"<<endl;
+                difID = (ocupados)- (floor(ocupados));
+
+                array_pos = floor(ocupados/pow(x,2));
+                if(IT[array_pos]==-1){
+                    for(int i =0; i<x;i++){
+                        IS[i]=-1;
+                        ID[i]=-1;
+                    }
+                }else{
+
+                    ID_pos = IT[array_pos]*sb.sizeofblock;
+                    if(ID_pos>0){
+                    cout<<"ID_POS "<<ID_pos<<endl;
+                    read(buf,ID_pos,sb.sizeofblock);
+                    memcpy((&ID),buf,x*sizeof(double));
+                    }else{
+                        for(int i =0;i<x;i++){
+                            ID[i]=-1;
+                        }
+                    }
+                    if(ocupados>pow(x,2)){
+                        array_IDpos =floor(ocupados/x)-x;
+                    }else{
+                        array_IDpos = floor(ocupados/x);
+                    }
+                    //
+                    IS_pos=ID[array_IDpos]*sb.sizeofblock;
+                    if(IS_pos>0){
+                        cout<<"IS_pos"<<IS_pos<<endl;
+                        read(buf,IS_pos,sb.sizeofblock);
+                        memcpy((&IS),buf,x*sizeof(double));
+                    }else{
+                        for(int i =0;i<x;i++){
+                            IS[i]=-1;
+                        }
+                    }
+                }
+                if(ocupados>=pow(x,2)){
+
+                    array_ISpos = floor(ocupados-pow(x,2));
+                }else if(ocupados >= x){
+                    array_ISpos = floor(ocupados-x);
+                }else{
+                    array_ISpos = floor(ocupados);
+                }
+
+
+                //nuevo aqui
+//                ID_pos = *sb.sizeofblock;
+//                char * buftem = new char[x*sizeof(double)];
+//                read(buftem,ID_pos,sb.sizeofblock);
+//                memcpy((&ID),buftem,x*sizeof(double));
+
+                cout<<"ocupados "<<ocupados<<endl;
+                cout<<"DIFID "<<difID<<endl;
+                cout<<"Array ISPOS "<<array_ISpos<<endl;
+                cout<<"Array IDPOS "<<array_IDpos<<endl;
+                cout<<"Array POS "<<array_pos<<endl;
+            }
+            cout<<"Array pos "<<array_pos<<endl;
+            for(int i =0; i< x;i++){
+                cout<<"ID pos "<<i<<" "<<ID[i]<<endl;
+                for(int i =0; i<x;i++){
+                    cout<<"IS pos "<<i<<" "<<IS[i]<<endl;
+                }
+            }
+            if(nuevo){
+                cout<<"entro nuevo "<<endl;
+                blocksindex = getfreeblocks(1);
+                IT[array_pos]=blocksindex[0];
+                ID_pos = blocksindex[0]*sb.sizeofblock;
+                blocksindex.erase(blocksindex.begin());
+
+                blocksindex = getfreeblocks(1);
+                ID[array_IDpos]=blocksindex[0];
+                IS_pos = blocksindex[0]*sb.sizeofblock;
+                blocksindex.erase(blocksindex.begin());
+
+                blocksindex = getfreeblocks(1);
+                IS[array_ISpos]= blocksindex[0];
+                cout<<IS[array_ISpos]<<endl;
+                move_to=blocksindex[0]*sb.sizeofblock;
+                cout<<"Move to IT NUEVO "<<move_to<<endl;
+                blocksindex.erase(blocksindex.begin());
+                memcpybuffer(buf,bloque,size_file,size-size_file,sb.sizeofblock);
+                write(buf,move_to,size_file);
+                size_file-=size_file;
+                nuevo = false;
+                //blocksindex = getfreeblocks(1);
+                //int pos = getFreePosInArray(IS,x);
+            }else{
+                if(ocupados < pow(x,3)){
+                    double dif = ocupados - floor(ocupados);
+                    cout<<"ocupados AQUI"<<ocupados<<endl;
+                    cout<<"DIF "<<dif<<endl;
+                    if(dif ==0 ){
+                        if(IT[array_pos]==-1){
+                            blocksindex=getfreeblocks(1);
+                            IT[array_pos]=blocksindex[0];
+                            blocksindex.erase(blocksindex.begin());
+                        }
+                        if(ID[array_IDpos]==-1){
+                            blocksindex=getfreeblocks(1);
+                            ID[array_IDpos]=blocksindex[0];
+                            blocksindex.erase(blocksindex.begin());
+                        }
+                        /*else{
+                            read(buf,IT[array_pos]*sb.sizeofblock,sb.sizeofblock);
+                            memcpy((&ID),buf,x*sizeof(double));
+
+                            array_IDpos = floor(ocupados/x);
+                            cout<<"Array IDpos "<<array_IDpos<<endl;
+                            read(buf,ID[array_IDpos]*sb.sizeofblock,sb.sizeofblock);
+                            memcpy((&IS),buf,x*sizeof(double));
+                            array_ISpos = getFreePosInArray(IS,x);
+                        }*/
+                        //borrrar aqui
+                        for(int i =0; i< x;i++){
+                            cout<<"ID pos "<<i<<" "<<ID[i]<<endl;
+                            for(int i =0; i<x;i++){
+                                cout<<"IS pos "<<i<<" "<<IS[i]<<endl;
+                            }
+                        }
+                        cout<<"ARRAY POS "<<array_pos<<endl;
+                        ID_pos=IT[array_pos]*sb.sizeofblock;
+                        cout<<"ID_POS adentro DIf==0 "<<ID_pos<<endl;
+                        IS_pos=ID[array_IDpos]*sb.sizeofblock;
+                        cout<<"IS_POS adentro DIf==0 "<<IS_pos<<endl;
+                        blocksindex = getfreeblocks(1);
+//                        if(ocupados>x){
+//                            ocupados-=x;
+//                        }
+                        //
+                        int pos = getFreePosInArray(IS,x);
+                        IS[pos] = blocksindex[0];
+                        cout<<"POS EN NUEVO "<<pos<<" AIS "<<array_ISpos<<endl;
+                        cout<<IS[array_ISpos]<<endl;
+                        move_to=blocksindex[0]*sb.sizeofblock;
+                        cout<<"Move to "<<move_to<<endl;
+                        blocksindex.erase(blocksindex.begin());
+                        write(bloque,move_to,size);
+                        size_file-=size;
+                        for(int i =0; i< x;i++){
+                            cout<<"ID pos "<<i<<" "<<ID[i]<<endl;
+                            for(int i =0; i<x;i++){
+                                cout<<"IS pos "<<i<<" "<<IS[i]<<endl;
+                            }
+                        }
+                    }else{
+                        cout<<"Entro dif !=0"<<endl;
+                        free_space = sb.sizeofblock-(sb.sizeofblock*difID);
+                        cout<<"FREE Space "<<free_space<<endl;
+                        if(free_space >= size){
+                            cout<<"Entro space >size "<<bloque<<endl;
+                            cout<<(int)array_ISpos<<" QUE HAY DENTRO IS"<<IS[(int)array_ISpos]<<endl;
+                            move_to = IS[(int)array_ISpos]*sb.sizeofblock + difID*sb.sizeofblock;
+                            cout<<"Move to "<<move_to<<endl;
+                            cout<<"Bloque "<<bloque<<endl;
+                            write(bloque,move_to,size);
+                            //IS_pos = ID[array_IDpos]*sb.sizeofblock;
+                            size_file-=size;
+                            for(int i =0; i< x;i++){
+                                cout<<"ID pos "<<i<<" "<<ID[i]<<endl;
+                                for(int i =0; i<x;i++){
+                                    cout<<"IS pos "<<i<<" "<<IS[i]<<endl;
+                                }
+                            }
+                        }else{
+                            memcpybuffer(buf,bloque,free_space,0,sb.sizeofblock);
+                            cout<<"Entro space <size "<<buf<<endl;
+                            cout<<array_ISpos<<" IS QUE HAY DENTRO "<<IS[(int)array_ISpos]<<endl;
+                            move_to = IS[(int)array_ISpos]*sb.sizeofblock + dif*sb.sizeofblock;
+                            cout<<"move to "<<move_to<<endl;
+                            write(buf,move_to,free_space);
+                            size_file-=free_space;
+                            double o = inodo.filesize/sb.sizeofblock;
+                            //IS_pos = ID[array_IDpos]*sb.sizeofblock;
+                            write((char*)IS,IS_pos,sb.sizeofblock);
+                            cout<<"POS IS AFUERA "<<IS_pos<<endl;
+                            if(((free_space+size_file)/sb.sizeofblock)+o<10 + x +pow(x,2)+ pow(x,3)){
+                                int nue =getFreePosInArray(IS,x);
+                                cout<<"entro nue < 0"<<endl;
+                                if(nue<0){
+                                    cout<<"entro nue < 0"<<endl;
+                                    int t = getFreePosInArray(ID,x);
+                                    if(t<0){
+                                        cout<<"Entro t <0 "<<endl;
+                                        if(array_pos<x){
+                                            array_pos++;
+                                            blocksindex = getfreeblocks(1);
+                                            IT[array_pos]= blocksindex[0];
+                                            ID_pos = blocksindex[0]*sb.sizeofblock;
+                                            blocksindex.erase(blocksindex.begin());
+                                            for(int i =0; i<x;i++){
+                                                ID[i]=-1;
+                                            }
+                                            blocksindex = getfreeblocks(1);
+                                            ID[0]=blocksindex[0];
+                                            IS_pos=blocksindex[0]*sb.sizeofblock;
+                                            blocksindex.erase(blocksindex.begin());
+                                            nue=0;
+                                        }
+                                    }else{
+                                        for(int i =0; i<x;i++){
+                                            IS[i]=-1;
+                                        }
+                                        array_IDpos=t;
+                                        cout<<"Array IDPOS "<<array_IDpos<<endl;
+                                        blocksindex=getfreeblocks(1);
+                                        ID[array_IDpos]=blocksindex[0];
+                                        blocksindex.erase(blocksindex.begin());
+                                        IS_pos=ID[array_IDpos]*sb.sizeofblock;
+                                        cout<<ID[array_IDpos]<<endl;
+                                        nue=0;
+                                    }
+                                }
+                                for(int i =0; i< x;i++){
+                                    cout<<"ID pos "<<i<<" "<<ID[i]<<endl;
+                                    for(int i =0; i<x;i++){
+                                        cout<<"IS pos "<<i<<" "<<IS[i]<<endl;
+                                    }
+                                }
+                                memcpybuffer(buf,bloque,sb.sizeofblock,free_space,sb.sizeofblock);
+                                cout<<"Entro space <10 + x + x2 +x3 "<<buf<<endl;
+                                blocksindex = getfreeblocks(1);
+                                cout<<"NUE abajo "<<nue<<endl;
+                                IS[nue]= blocksindex[0];
+                                move_to = blocksindex[0]*sb.sizeofblock;
+                                cout<<"Move to "<<move_to<<endl;
+                                blocksindex.erase(blocksindex.begin());
+                                write(buf,move_to,size-free_space);
+                                size_file-=(size-free_space);
+                                for(int i =0; i< x;i++){
+                                    cout<<"ID pos "<<i<<" "<<ID[i]<<endl;
+                                    for(int i =0; i<x;i++){
+                                        cout<<"IS pos "<<i<<" "<<IS[i]<<endl;
+                                    }
+                                }
+                            }else{
+                                nuevo = true;
+                                cout<<"LLENOS INDIRECTOS Triples"<<endl;
+                            }
+                        }
+                    }
+
+                }else{
+                    cout<<"Llenos Indirectos Triples"<<endl;
+                }
+            }
+            write((char*)IS,IS_pos,sb.sizeofblock);
+            cout<<"POS IS AFUERA "<<IS_pos<<endl;
+            write((char*)ID,ID_pos,sb.sizeofblock);
+            cout<<"POS ID AFUERA "<<ID_pos<<endl;
+            write((char*)IT,IT_pos,sb.sizeofblock);
+            cout<<"POS IT AFUERA "<<IT_pos<<endl;
+        }
+
+    }//me quede aqui
+    cout<<"Size_file "<<size_file<<endl;
+    cout<<"file size ANTES "<<inodo.filesize<<endl;
+    inodo.blockuse+=size/sb.sizeofblock;
+    inodo.filesize+=size;
+    cout<<"Blockused "<<inodo.blockuse<<" y filesize "<<inodo.filesize<<endl;
+    return true;
+
+}
+
+bool Disco::write(char *buffer, double init, double byte_size)
 {
     ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
     if(!out){
@@ -753,6 +1442,16 @@ bool Disco::write(char *buffer, double init, double byte_size, string path)
         out.close();
     }
     return true;
+}
+
+bool Disco::nameExist(string nombre)
+{
+    for(int i =0; i < sb.cantofinode; i++){
+        if(ft_array[i].name == nombre){
+            return true;
+        }
+    }
+    return false;
 }
 
 bool Disco::crearBloqueFT()
@@ -784,6 +1483,15 @@ bool Disco::crearBloqueFT()
 
 }
 
+bool Disco::mkDir(string nombre)
+{
+    if(sb.freeinode>0){
+
+    }else{
+        cout<<"No hay inodos disponibles "<<endl;
+    }
+}
+
 void Disco::cd(string nombre)
 {
     double num = seek(nombre);
@@ -805,6 +1513,218 @@ inode_d Disco::seekInode(double num, string path)
     inode_d a;
     memcpy((&a),buffer,sizeof(inode_d));
     return a;
+}
+
+bool Disco::mkFile(double size_file, string file_name)
+{
+    vector<double>needed = fileVerification(size_file);
+    if(needed[2]==-1){
+        cout<<"Archivo muy grande para la capacidad del inodo"<<endl;
+        return false;
+    }else{
+        if(size_file>sb.freespace){
+            cout<<"No hay suficiente espacio en el disco para guardar archivo"<<endl;
+            return false;
+        }else{
+            if(sb.freeinode<=0){
+                cout<<"No hay inodos dispobibles para ese archivo"<<endl;
+                return false;
+            }else{
+                if(nameExist(file_name)){
+                    cout<<"Ese nombre ya existe, re-escriba el nombre"<<endl;
+                    return false;
+                }else{
+                    //getting inodes and filetable
+                    char *buffer = new char[sizeof(inode_d)];
+                    int inode_pos = nextAvailable(bitmap_inode,false);
+
+                    if(inode_pos!=-1){
+                        cout<<"pos del inodo "<<inode_pos<<endl;
+                        cout<<"esta usado inode pos "<<is_block_in_use(bitmap_inode,inode_pos);
+                        double move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+                                +(inode_pos*sizeof(inode_d));
+                        ifstream in(path.c_str(), ios::in | ios::out | ios::binary);
+                        if(!in){
+                            cout<<"error al intentar abrir el disco"<<endl;
+                            return false;
+                        }
+                        in.seekg(move_to,ios::beg);
+                        in.read(buffer,sizeof(inode_d));
+                        inode_d inodo;
+                        memcpy((&inodo),buffer,sizeof(inode_d));
+                        in.close();
+                        //borrar comen
+                        double filetable_pos =getNextFreeFileTable();
+                        cout<<"pos del FT "<<filetable_pos<<endl;
+                        cout<<" esta usado "<<is_block_in_use(bitmap_inode,filetable_pos)<<endl;
+                        strcpy(ft_array[(int)filetable_pos].name,file_name.c_str());
+                        ft_array[(int)filetable_pos].inode_index=inode_pos;
+                        char * bloque = new char[sb.sizeofblock];
+
+                        for(int i =0; i<sb.sizeofblock;i++){
+                            int x = rand()%25+65;
+                            bloque[i]= x;
+                       }
+                       bloque[0]='A';
+                       bloque[sb.sizeofblock-1]='Z';
+                       //strcpy(bloque,"1234567890123456");
+                       sb.freespace-=size_file+(needed[1]*sb.sizeofblock);
+                       for(int i =0; i < needed[0];i++){
+                           if(size_file<=0)
+                               break;
+                           if(size_file>=sb.sizeofblock){
+                                writeBloque(bloque,inodo,sb.sizeofblock,"-rwxrwxrwx");
+                           }else{
+                               writeBloque(bloque,inodo,size_file,"-rwxrwxrwx");
+                           }
+                           size_file-=sb.sizeofblock;
+                       }
+                       ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
+                       //actualizando super block
+                       sb.freeblock-=(needed[0]+needed[1]);
+                       sb.freeinode--;
+                       out.write((char*)&sb,sizeof(superBlock_d));
+
+                       //actualizando bitmap
+                       out.write(bitmap,bitmap_size*sizeof(char));
+                       //actualizando bitmap de inodes
+                       out.write(bitmap_inode,bit_inode_size*sizeof(char));
+                       //actualizando filetable
+                       FileTable_d ft = ft_array[(int)filetable_pos];
+                       double ftb_pos = filetable_pos*sizeof(FileTable_d);
+                       out.seekp(ftb_pos,ios::cur);
+                       out.write((char*)&ft,sizeof(FileTable_d));
+                       //actualizando inodo
+                       out.seekp(move_to,ios::beg);
+                       out.write(((char*)&inodo),sizeof(inode_d));
+                       out.close();
+
+                       cout<<"Imprime directos simples afuera de writeDS"<<endl;
+                       for(int i =0; i<10;i++){
+                           cout<<inodo.directos[i]<<" "<<ends;
+                       }
+                       cout<<endl;
+                       cout<<"Indirectos simples"<<endl;
+                       if(inodo.indirectossimples>0){
+                       double move = inodo.indirectossimples*sb.sizeofblock;
+                       char * tem = new char[sb.sizeofblock];
+                       double t[2];
+                       if(move>0){
+                           read(tem,move,sb.sizeofblock);
+                           memcpy((&t),tem,sb.sizeofblock);
+                       }
+
+                       for(int i =0; i<2;i++){
+                           cout<<t[i]<<" "<<ends;
+                       }
+                       cout<<endl;
+                       }
+                       if(inodo.indirectosdobles>0){
+                       cout<<"Indirectos dobles"<<endl;
+                       double move = inodo.indirectosdobles*sb.sizeofblock;
+                       char *tem = new char[sb.sizeofblock];
+                       double t[2];
+                       if(move>0){
+                           read(tem,move,sb.sizeofblock);
+                           memcpy((&t),tem,sb.sizeofblock);
+                       }
+
+                       for(int i =0; i<2;i++){
+                           cout<<"ID"<<endl;
+                           cout<<t[i]<<" "<<endl;
+                           double t2[2];
+                           if(t[i]!=-1){
+                               move=t[i]*sb.sizeofblock;
+                               read(tem,move,sb.sizeofblock);
+                               memcpy((&t2),tem,sb.sizeofblock);
+                               cout<<"IS"<<endl;
+                               for(int i =0;i<2;i++){
+                                   cout<<t2[i]<<" "<<ends;
+                               }
+                               cout<<endl;
+                           }
+                       }
+                       cout<<endl;
+                       }
+                       char * buftemp = new char[sb.sizeofblock];
+                       read(buftemp,4387*16,sb.sizeofblock);
+                       double s[2];
+                       memcpy((&s),buftemp,sb.sizeofblock);
+                       cout<<"Afuera"<<endl;
+                       cout<<s[0]<<endl;
+                       cout<<s[1]<<endl;
+                       double y[2];
+                       double m[2];
+                       double n[2];
+                       cout<<"Indirectos triples"<<endl;
+                       cout<<inodo.indirectostriples<<endl;
+//                       if(inodo.indirectostriples>0){
+//                           cout<<"IT"<<endl;
+//                           read(buftemp,inodo.indirectostriples*sb.sizeofblock,sb.sizeofblock);
+//                           memcpy(&y,buftemp,sb.sizeofblock);
+//                           cout<<y[0]<<" "<<y[1]<<ends;
+//                           cout<<endl;
+
+//                           read(buftemp,y[0]*sb.sizeofblock,sb.sizeofblock);
+//                           memcpy(&m,buftemp,sb.sizeofblock);
+//                           for(int i =0; i<2;i++){
+//                               cout<<"ID"<<endl;
+
+//                               cout<<m[i]<<endl;
+//                               cout<<"IS"<<endl;
+//                               if(m[i]!=-1){
+//                                   read(buftemp,m[i]*sb.sizeofblock,sb.sizeofblock);
+//                                   memcpy(&n,buftemp,sb.sizeofblock);
+//                                   for(int i =0;i<2;i++){
+//                                       cout<<n[i]<<ends;
+//                                   }
+//                                   cout<<endl;
+//                               }
+//                           }
+//                           cout<<endl;
+//                       }
+                       int x=sb.sizeofblock/8;
+                       char *buf = new char[sb.sizeofblock];
+                       double z[x];
+                       double v[x];
+                       double c[x];
+                       read(buf,(inodo.indirectostriples*sb.sizeofblock),(double)sb.sizeofblock);
+                       memcpy(&z,buf,sb.sizeofblock);
+                           //    memcpy(&ino,buf,size_block);
+                               cout<<"Leido del Disco IT en!: "<<inodo.indirectostriples<<endl;
+                               if(inodo.indirectostriples!=-1)
+                               {
+                                   for (int i = 0; i < x; ++i) {
+                                       cout<<"ID en- "<<z[i]<<endl;
+                                       char *buf2 = new char[sb.sizeofblock];
+                                       read(buf2,z[i]*sb.sizeofblock,(double)sb.sizeofblock);
+                                       memcpy(&v,buf2,sb.sizeofblock);
+                               //        cout<<"ID del IT"<<endl;
+                                       if(z[i]!=-1)
+                                       {
+                                           for (int j = 0; j < x; ++j) {
+                                               cout<<"IS en- "<<v[j]<<endl;
+                                               char *buf3 = new char[sb.sizeofblock];
+                                               read(buf3,v[j]*sb.sizeofblock,(double)sb.sizeofblock);
+                                               memcpy(&c,buf3,sb.sizeofblock);
+                                   //            cout<<"IS del ID del IT"<<endl;
+                                               if(v[j]!=-1)
+                                               {
+                                                   for (int k = 0; k < x; ++k) {
+                                                       cout<<"data en- "<<c[k]<<endl;
+                                                   }
+                                               }
+                                           }
+                                       }
+                                   }
+                               }
+                       return true;
+                    }
+
+                }
+            }
+        }
+    }
 }
 
 void Disco::setFiletables(double numBlock, string path)

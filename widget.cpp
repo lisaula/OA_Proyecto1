@@ -29,7 +29,13 @@ void Widget::insertar()
 
 void Widget::on_lineEdit_returnPressed()
 {
+    if(ui->lineEdit->text()==""){
+        ui->lineEdit->setText(last);
+        //commandPromt->setActual(last);
+    }else{
     commandPromt->setActual(ui->lineEdit->text());
+    last = ui->lineEdit->text();
     insertar();
     ui->lineEdit->clear();
+    }
 }

@@ -22,6 +22,7 @@ private slots:
     void on_lineEdit_returnPressed();
 
 private:
+    QString last;
     QGraphicsScene *scene;
     QGraphicsSimpleTextItem *text;
     CP * commandPromt = new CP();

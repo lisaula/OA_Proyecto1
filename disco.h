@@ -7,6 +7,7 @@
 #include<QDir>
 #include<math.h>
 
+
 using namespace std;
 
 typedef struct superBlock{
@@ -55,23 +56,30 @@ public:
     double disksizemb, disksizebyte;
     int getNextFreeFileTable();
     int blocksize; double block_utilized;
-    bool write(char* buffer, double init, double byte_size, string path);
+    bool writeBloque(char * bloque, inode_d &inodo, double size, string permisos);
+    bool write(char* buffer, double init, double byte_size);
     superBlock_d sb;
     char *bitmap;
     char *bitmap_inode;
     inode_d global;
+    bool nameExist(string nombre);
     string path;
     bool crearBloqueFT();
+    bool mkDir(string nombre);
     void cd(string nombre);
     inode_d seekInode(double num, string path);
+    bool mkFile(double size_file, string file_name);
     void setFiletables(double numBlock, string path);
     FileTable_d *ft_array;
     bool crearDisco(string nombre, double disksizeMb, double blocksizeB);
+    int getFreePosInArray(double * array, int size);
     double seek(string nombre);
     void saveFileInDir(string nombre, double inodenumdir, double inodenumFile, string path);
     bool createDir(string diskname, string nombreDir);
     void memcpybuffer(char *&dest, char* src, int sizeblock, double init, double size_src);
     bool writeFile(char *file, double size_file, string diskname, vector<double>blocksindex, inode_d &inodo, vector<double> needed);
+    bool read(char *&buffer, double init, double bytesToRead);
+    int getLastIDIS(double *ID, double *&IS, int x);
     Disco();
 };
 

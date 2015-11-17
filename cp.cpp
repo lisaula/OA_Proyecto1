@@ -131,7 +131,7 @@ QString CP::parseLogic(vector<string> parse)
             text+="No se admiten archivos con nombres mayor a 20 caracteres";
         }else{
             double tamano = std::atof(parse[2].c_str());
-            if(disk->guardararchivo(current,tamano,nombre)){
+            if(disk->mkFile(tamano,nombre)){//disk->guardararchivo(current,tamano,nombre)){
             text+= QString("Ha creado un archivo llamado %1 con tamano %2MB en el directorio %3").arg(nombre.c_str()).arg(tamano).arg(dir.c_str());
             }
         }
