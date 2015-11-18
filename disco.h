@@ -60,14 +60,19 @@ public:
     bool write(char* buffer, double init, double byte_size);
     superBlock_d sb;
     char *bitmap;
+    double global_index;
     char *bitmap_inode;
     inode_d global;
+    vector<double> getUsedBloques(inode_d inodo);
+    void getData(char* &buffer, vector<double>bloques, double size);
+    void memtransbuffer(char *&dest, char *src, double init, double size_src);
     double global_pos=0;
     bool nameExist(string nombre);
     string path;
     bool crearBloqueFT();
     bool mkDir(string nombre);
-    void cd(string nombre);
+    bool cd(string nombre);
+    QString ls();
     inode_d seekInode(double num, string path);
     bool mkFile(double size_file, string file_name);
     void setFiletables(double numBlock, string path);
@@ -75,6 +80,7 @@ public:
     bool crearDisco(string nombre, double disksizeMb, double blocksizeB);
     int getFreePosInArray(double * array, int size);
     double seek(string nombre);
+    vector<FileTable_d *> getFTfromDir(char * buffer, double size);
     void saveFileInDir(string nombre, double inodenumdir);
     double seekByIndexInode(double index);
     void memcpybuffer(char *&dest, char* src, int sizeblock, double init, double size_src);

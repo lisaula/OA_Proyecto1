@@ -23,7 +23,8 @@ public:
 private:
     Disco *disk;
     string DISK_PATH="DISKS/";
-    string current, dir;
+    string current, dir, old_dir="Root", old;
+    int cont=0;
     bool m;
     QString parseLogic(vector<string> parse);
 };

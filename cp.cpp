@@ -114,12 +114,29 @@ QString CP::parseLogic(vector<string> parse)
                 text+="El nombre solo permite 10 caracteres.";
         }
     }else if(m && parse[0]=="ls"){
-        text+="ENLISTA DESPUES DE HABER MONTADO";
-
+        text+=disk->ls();
     }else if(m && parse[0]=="cd"){
         if(parse.size()==2){
-            dir="/root/"+parse[1]+" ";
-            text+=QString("Se movio en el disco a %1").arg(parse[1].c_str());
+            string nombre = parse[1];
+            if(disk->cd(nombre)){
+                cont++;
+                if(cont>1){
+                    old=old_dir;
+                    cout<<old_dir<<" "<<old<<endl;
+                }
+                text+=QString("Se movio en el disco a %1").arg(parse[1].c_str());
+
+                if(strcmp(nombre.c_str(),"..")==0){
+                    dir=old;
+                    cout<<"dir "<<dir<<endl;
+                }else{
+                    old_dir=dir;
+                    dir="/"+parse[1]+" ";
+                    cout<<"dir no.. "<<dir<<endl;
+                }
+            }else{
+                text+=QString("Error al intentar moverse a %1").arg(nombre.c_str());
+            }
         }else{
             text+="Especifique path";
         }
