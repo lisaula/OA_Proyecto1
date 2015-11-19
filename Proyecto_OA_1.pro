@@ -15,10 +15,13 @@ TEMPLATE = app
 SOURCES += main.cpp\
         widget.cpp \
     cp.cpp \
-    disco.cpp
+    disco.cpp \
+    dialog.cpp
 
 HEADERS  += widget.h \
     cp.h \
-    disco.h
+    disco.h \
+    dialog.h
 
-FORMS    += widget.ui
+FORMS    += widget.ui \
+    dialog.ui

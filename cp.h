@@ -18,7 +18,7 @@ public:
     string delimitador;
     QString logica();
     void setActual(QString le);
-
+    QString AddFile(string path, string nombre);
     CP();
 private:
     Disco *disk;
@@ -26,6 +26,8 @@ private:
     string current, dir, old_dir="Root", old;
     int cont=0;
     bool m;
+    QString addfile;
+
     QString parseLogic(vector<string> parse);
 };
 

@@ -846,7 +846,7 @@ bool Disco::rm(string nombre)
             ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
             //actualizando super block
             sb.freeinode++;
-            sb.freeblock-=bloques.size();
+            sb.freeblock+=bloques.size();
             sb.freeinode++;
             sb.freespace+=bloques.size()*sb.sizeofblock;
             out.write((char*)&sb,sizeof(superBlock_d));
@@ -2127,6 +2127,120 @@ bool Disco::cp(string nombre, string path, string new_name)
                 if(mkFile(scr.filesize,new_name)){
                     global = temp;
                     return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool Disco::addFile(string direccion, string nombre)
+{
+    ifstream in(direccion.c_str(), ios::in|ios::out|ios::binary);
+    char* bloque = new char[sb.sizeofblock];
+    in.seekg(0,ios::end);
+    double size = in.tellg();
+    double size_file = size;
+    vector<double>needed = fileVerification(size_file);
+    in.seekg(0,ios::beg);
+    double cant = ceil((double)size/sb.sizeofblock);
+    if(needed[2]==-1){
+        cout<<"Archivo muy grande para la capacidad del inodo"<<endl;
+        return false;
+    }else{
+        if(size_file>sb.freespace){
+            cout<<"No hay suficiente espacio en el disco para guardar archivo"<<endl;
+            return false;
+        }else{
+            if(sb.freeinode<=0){
+                cout<<"No hay inodos dispobibles para ese archivo"<<endl;
+                return false;
+            }else{
+                if(nameExist(nombre)){
+                    cout<<"Ese nombre ya existe, re-escriba el nombre"<<endl;
+                    return false;
+                }else{//getting inodes and filetable
+                    char *buffer = new char[sizeof(inode_d)];
+                    int inode_pos = nextAvailable(bitmap_inode,false);
+
+                    if(inode_pos!=-1){
+                        cout<<"pos del inodo "<<inode_pos<<endl;
+                        cout<<"esta usado inode pos "<<is_block_in_use(bitmap_inode,inode_pos);
+                        double move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+                                +(inode_pos*sizeof(inode_d));
+                        ifstream in(path.c_str(), ios::in | ios::out | ios::binary);
+                        if(!in){
+                            cout<<"error al intentar abrir el disco"<<endl;
+                            return false;
+                        }
+                        in.seekg(move_to,ios::beg);
+                        in.read(buffer,sizeof(inode_d));
+                        inode_d inodo;
+                        memcpy((&inodo),buffer,sizeof(inode_d));
+                        in.close();
+                        inodo.blockuse=0;inodo.filesize=0;
+                        for(int i =0;i<10;i++){
+                            inodo.directos[i]=-1;
+                        }
+                        inodo.indirectossimples=-1;
+                        inodo.indirectosdobles=-1;
+                        inodo.indirectostriples=-1;
+                        //borrar comen
+                        double filetable_pos =getNextFreeFileTable();
+                        cout<<"pos del FT "<<filetable_pos<<endl;
+                        cout<<" esta usado "<<is_block_in_use(bitmap_inode,filetable_pos)<<endl;
+                        strcpy(ft_array[(int)filetable_pos].name,nombre.c_str());
+                        ft_array[(int)filetable_pos].inode_index=inode_pos;
+
+
+                       sb.freespace-=size_file+(needed[1]*sb.sizeofblock);
+//                       for(int i =0; i < needed[0];i++){
+//                           if(size_file<=0)
+//                               break;
+//                           if(size_file>=sb.sizeofblock){
+//                                writeBloque(bloque,inodo,sb.sizeofblock,"-rwxrwxrwx");
+//                           }else{
+//                               writeBloque(bloque,inodo,size_file,"-rwxrwxrwx");
+//                           }
+//                           size_file-=sb.sizeofblock;
+//                       }
+                        ifstream in2(direccion.c_str(), ios::in|ios::out|ios::binary);
+                        bloque = new char[sb.sizeofblock];
+                        for(int i =0; i<cant;i++){
+                            if(size>=sb.sizeofblock){
+                                in2.read(bloque,sb.sizeofblock);
+                                 writeBloque(bloque,inodo,sb.sizeofblock,"-rwxrwxrwx");
+                            }else{
+                                in2.read(bloque,size);
+                                 writeBloque(bloque,inodo,size,"-rwxrwxrwx");
+                            }
+                        }
+                        in2.close();
+                       //cout<<"Permisos "<<inodo.permisos<<endl;
+                       saveFileInDir(nombre,inode_pos);
+                       ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
+                       //actualizando super block
+                       sb.freeblock-=(needed[0]+needed[1]);
+                       sb.freeinode--;
+                       out.write((char*)&sb,sizeof(superBlock_d));
+
+                       //actualizando bitmap
+                       out.write(bitmap,bitmap_size*sizeof(char));
+                       //actualizando bitmap de inodes
+                       out.write(bitmap_inode,bit_inode_size*sizeof(char));
+                       //actualizando filetable
+                       FileTable_d ft = ft_array[(int)filetable_pos];
+                       double ftb_pos = filetable_pos*sizeof(FileTable_d);
+                       out.seekp(ftb_pos,ios::cur);
+                       out.write((char*)&ft,sizeof(FileTable_d));
+                       //actualizando inodo
+                       out.seekp(move_to,ios::beg);
+                       out.write(((char*)&inodo),sizeof(inode_d));
+                       out.seekp(global_pos,ios::beg);
+                       out.write((char*)&global,sizeof(inode_d));
+                       out.close();
+                       return true;
+                    }
                 }
             }
         }

@@ -29,6 +29,16 @@ CP::CP()
     disk= new Disco();
 }
 
+QString CP::AddFile(string path, string nombre)
+{
+    if(disk->addFile(path,nombre)){
+        addfile = QString("Ha creado un archivo llamado %1 en el directorio %3").arg(nombre.c_str()).arg(dir.c_str());
+    }else{
+        addfile = QString("Error al intentar guardar archivo");
+    }
+    return addfile;
+}
+
 QString CP::parseLogic(vector<string> parse)
 {
     QString text =QString("%1 ~ %2$-").arg(current.c_str()).arg(dir.c_str());

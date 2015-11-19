@@ -5,6 +5,7 @@
 #include<QGraphicsScene>
 #include<QGraphicsSimpleTextItem>
 #include<QListWidgetItem>
+#include"dialog.h"
 namespace Ui {
 class Widget;
 }
@@ -20,6 +21,8 @@ public:
 
 private slots:
     void on_lineEdit_returnPressed();
+
+    void on_add_file_clicked();
 
 private:
     QString last;

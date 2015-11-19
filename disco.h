@@ -77,6 +77,7 @@ public:
     bool mkDir(string nombre);
     bool cd(string nombre);
     bool cp(string nombre, string path, string new_name);
+    bool addFile(string direccion, string nombre);
     QString ls();
     inode_d seekInode(double num, string path);
     bool mkFile(double size_file, string file_name);
