@@ -166,7 +166,11 @@ QString CP::parseLogic(vector<string> parse)
         if(nombre.size()>20){
             text+="No se admiten archivos con nombres mayor a 20 caracteres";
         }else{
-            text+=QString("Ha borrado el archivo o directorio %1").arg(nombre.c_str());
+            if(disk->rm(nombre)){
+                text+=QString("Ha borrado el archivo %1").arg(nombre.c_str());
+            }else{
+                text+=QString("Error al intentar borrar el archivo %1").arg(nombre.c_str());
+            }
         }
     }else if(m && parse[0]=="export" && parse.size()==2){
         string nombre = parse[1];

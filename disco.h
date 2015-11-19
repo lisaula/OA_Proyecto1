@@ -56,6 +56,8 @@ public:
     double disksizemb, disksizebyte;
     int getNextFreeFileTable();
     int blocksize; double block_utilized;
+    bool rm(string nombre);
+    vector<double>getAllUsedBlocks(inode_d inodo);
     bool writeBloque(char * bloque, inode_d &inodo, double size, string permisos);
     bool write(char* buffer, double init, double byte_size);
     superBlock_d sb;
@@ -68,6 +70,7 @@ public:
     void memtransbuffer(char *&dest, char *src, double init, double size_src);
     double global_pos=0;
     bool nameExist(string nombre);
+    void reWriteFT(string nombre);
     string path;
     bool crearBloqueFT();
     bool mkDir(string nombre);
