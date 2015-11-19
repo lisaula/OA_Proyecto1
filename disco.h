@@ -71,6 +71,7 @@ public:
     double global_pos=0;
     bool nameExist(string nombre);
     void reWriteFT(string nombre);
+    bool exportFile(string nombre);
     string path;
     bool crearBloqueFT();
     bool mkDir(string nombre);

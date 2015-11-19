@@ -439,8 +439,8 @@ Disco::Disco()
     for(int i =0; i<sizeof(name); i++){
         name[i]=' ';
     }
-    //QDir qdir;
-    //qdir.mkdir("DISKS");
+//    QDir qdir;
+//    qdir.mkdir("Exported");
     FS_size=0;
     FS_blockused=0;
     disksizemb=0;
@@ -813,59 +813,63 @@ bool Disco::rm(string nombre)
     if(nameExist(nombre)){
         int num = seek(nombre);
         inode a = seekInode(num,path);
-        vector<double>bloques;
-        bloques = getAllUsedBlocks(a);
-        char block[sb.sizeofblock];
-        double move_to;
-        memset(block,'0',sb.sizeofblock);
-        for(int i =0;i<bloques.size();i++){
-            move_to=bloques[i]*sb.sizeofblock;
-            setBlock_unuse(bitmap,i);
-            write(block,move_to,sb.sizeofblock);
-        }
+        if(a.permisos[0]!='d'){
+            reWriteFT(nombre);
+            vector<double>bloques;
+            bloques = getAllUsedBlocks(a);
+            char block[sb.sizeofblock];
+            double move_to;
+            memset(block,'0',sb.sizeofblock);
+            for(int i =0;i<bloques.size();i++){
+                move_to=bloques[i]*sb.sizeofblock;
+                setBlock_unuse(bitmap,bloques[i]);
+                write(block,move_to,sb.sizeofblock);
+            }
 
-        //actualizar inodo
-        setBlock_unuse(bitmap_inode,num);
-        for(int i =0;i<10;i++){
-            a.directos[i]=-1;
-        }
-        a.blockuse=0;
-        a.filesize=0;
-        a.indirectosdobles=-1;
-        a.indirectossimples=-1;
-        a.indirectostriples=-1;
-        strcpy(a.permisos,"-rwxrwxrwx");
-        //actualizar Filetable
-        FileTable_d ft;
-        memset(ft.name,0,20);
-        ft.inode_index=-1;
-        //actualizar File system
-        ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
-        //actualizando super block
-        sb.freeinode++;
-        sb.freeblock-=bloques.size();
-        sb.freeinode++;
-        sb.freespace+=bloques.size()*sb.sizeofblock;
-        out.write((char*)&sb,sizeof(superBlock_d));
+            //actualizar inodo
+            setBlock_unuse(bitmap_inode,num);
+            for(int i =0;i<10;i++){
+                a.directos[i]=-1;
+            }
+            a.blockuse=0;
+            a.filesize=0;
+            a.indirectosdobles=-1;
+            a.indirectossimples=-1;
+            a.indirectostriples=-1;
+            strcpy(a.permisos,"-rwxrwxrwx");
+            //actualizar Filetable
+            FileTable_d ft;
+            memset(ft.name,0,20);
+            ft.inode_index=-1;
+            ft_array[num]=ft;
+            //actualizar File system
+            ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
+            //actualizando super block
+            sb.freeinode++;
+            sb.freeblock-=bloques.size();
+            sb.freeinode++;
+            sb.freespace+=bloques.size()*sb.sizeofblock;
+            out.write((char*)&sb,sizeof(superBlock_d));
 
-        //actualizando bitmap
-        out.write(bitmap,bitmap_size*sizeof(char));
-        //actualizando bitmap de inodes
-        out.write(bitmap_inode,bit_inode_size*sizeof(char));
-        //actualizando filetable
-        double ftb_pos = num*sizeof(FileTable_d);
-        out.seekp(ftb_pos,ios::cur);
-        out.write((char*)&ft,sizeof(FileTable_d));
-        //actualizando inodo
-        move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
-                +(num*sizeof(inode_d));
-        out.seekp(move_to,ios::beg);
-        out.write(((char*)&a),sizeof(inode_d));
-        reWriteFT(nombre);
-        out.seekp(global_pos,ios::beg);
-        out.write((char*)&global,sizeof(inode_d));
-        out.close();
-        return true;
+            //actualizando bitmap
+            out.write(bitmap,bitmap_size*sizeof(char));
+            //actualizando bitmap de inodes
+            out.write(bitmap_inode,bit_inode_size*sizeof(char));
+            //actualizando filetable
+            double ftb_pos = num*sizeof(FileTable_d);
+            out.seekp(ftb_pos,ios::cur);
+            out.write((char*)&ft,sizeof(FileTable_d));
+            //actualizando inodo
+            move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+                    +(num*sizeof(inode_d));
+            out.seekp(move_to,ios::beg);
+            out.write(((char*)&a),sizeof(inode_d));
+            //reWriteFT(nombre);
+//            out.seekp(global_pos,ios::beg);
+//            out.write((char*)&global,sizeof(inode_d));
+            out.close();
+            return true;
+        }
     }
     return false;
 
@@ -1797,6 +1801,7 @@ bool Disco::nameExist(string nombre)
 
 void Disco::reWriteFT(string nombre)
 {
+    //cout<<"Entro reWrite"<<endl;
     char* buffer;
     vector<FileTable_d*>array;
     vector<FileTable_d*>nue;
@@ -1804,9 +1809,10 @@ void Disco::reWriteFT(string nombre)
     getData(buffer,bloques,global.filesize);
     array = getFTfromDir(buffer,global.filesize);
     for(int i =0; i<array.size();i++){
-        if(array[i]->name != nombre){
-            nue.push_back(array[i]);
+        if(strcmp(array[i]->name,nombre.c_str())==0){
+            continue;
         }
+        nue.push_back(array[i]);
     }
     char bloc[sb.sizeofblock];
     memset(bloc,'0',sb.sizeofblock);
@@ -1824,8 +1830,8 @@ void Disco::reWriteFT(string nombre)
     global.indirectossimples=-1;
     global.indirectosdobles=-1;
     global.indirectostriples=-1;
-
-    for(int i =0;i<nue.size();i++){
+    //cout<<"nue size "<<nue.size()<<endl;
+    for(int j =0;j<nue.size();j++){
         if(sizeof(FileTable_d)>sb.sizeofblock){
             char * tempbuffer = new char[sb.sizeofblock];
             double t = ceil((double)sizeof(FileTable_d)/sb.sizeofblock);
@@ -1839,7 +1845,7 @@ void Disco::reWriteFT(string nombre)
                if(size_temp<=0)
                    break;
 
-               memcpybuffer(tempbuffer,(char*)array[i],sb.sizeofblock,temp,sizeof(FileTable_d));
+               memcpybuffer(tempbuffer,(char*)nue[j],sb.sizeofblock,temp,sizeof(FileTable_d));
                //cout<<"buffer en mkdir "<<tempbuffer<<endl;
                temp+=sb.sizeofblock;
                if(size_temp>sb.sizeofblock){
@@ -1851,9 +1857,60 @@ void Disco::reWriteFT(string nombre)
                //cout<<i<<" i"<<endl;
             }
         }else{
-            writeBloque((char*)array[i],global,sizeof(FileTable_d),"En drwxrwxrwx");
+            writeBloque((char*)nue[j],global,sizeof(FileTable_d),"En drwxrwxrwx");
+        }
+        //cout<<"escribio de nuevo a "<<nue[j]->name<<" en index "<<nue[j]->inode_index<<endl;
+    }
+    //cout<<"SALIO REWRITEEEEEEEEEEEEEEEEE"<<endl;
+    write((char*)&global,global_pos,sizeof(inode_d));
+}
+
+bool Disco::exportFile(string nombre)
+{
+    string new_path="Exported/";
+    nombre;
+    new_path+=nombre;
+
+    if(nameExist(nombre)){
+        int num = seek(nombre);
+        inode_d a = seekInode(num,path);
+        if(a.permisos[0]!='d'){
+            char* buffer;
+            vector<double>bloques = getUsedBloques(a);
+            ofstream out(new_path.c_str(),ios::binary);
+            if(!out){
+                out.open(new_path.c_str());
+            }
+            double move;
+            buffer = new char[sb.sizeofblock];
+            double temp = a.filesize;
+            for(int i =0;i<bloques.size();i++){
+                if(temp<0)
+                    break;
+                //cout<<"temp arriba "<<temp<<" cont "<<endl;
+                move = bloques[i]*sb.sizeofblock;
+                if(temp<sb.sizeofblock){
+                    read(buffer,move,temp);
+                    out.write(buffer,temp);
+                    //cout<<"temp "<<temp<<endl;
+                   // cont+=temp;
+                    temp-=temp;
+                }else{
+                    read(buffer,move,sb.sizeofblock);
+                    out.write(buffer,sb.sizeofblock);
+                    //cout<<"16 "<<endl;
+                   // cont+=sb.sizeofblock;
+                    temp-=sb.sizeofblock;
+                }
+
+                //cout<<"temp adentro "<<temp<<" cont "<<0<<endl;
+            }
+            out.close();
+            return true;
         }
     }
+    return false;
+
 }
 
 bool Disco::crearBloqueFT()

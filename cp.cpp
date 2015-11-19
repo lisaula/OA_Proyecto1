@@ -177,7 +177,11 @@ QString CP::parseLogic(vector<string> parse)
         if(nombre.size()>20){
             text+="No se admiten archivos con nombres mayor a 20 caracteres";
         }else{
-            text+=QString("Ha exportado el archivo %1").arg(nombre.c_str());
+            if(disk->exportFile(nombre)){
+                text+=QString("Ha exportado el archivo %1").arg(nombre.c_str());
+            }else{
+                text+=QString("Error al intentar exportar archivo %1").arg(nombre.c_str());
+            }
         }
     }else if(m && parse[0]=="cp" && parse.size()==3){
         string nombre = parse[1], direccion =parse[2];
