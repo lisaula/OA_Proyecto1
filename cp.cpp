@@ -183,12 +183,16 @@ QString CP::parseLogic(vector<string> parse)
                 text+=QString("Error al intentar exportar archivo %1").arg(nombre.c_str());
             }
         }
-    }else if(m && parse[0]=="cp" && parse.size()==3){
-        string nombre = parse[1], direccion =parse[2];
-        if(nombre.size()>20 || direccion.size()>20){
+    }else if(m && parse[0]=="cp" && parse.size()==4){
+        string nombre = parse[1], direccion =parse[2],new_name = parse[3];
+        if(nombre.size()>20 || direccion.size()>20 || new_name.size()>20){
             text+="El noombre o direccion es mayor a 20 caracteres";
         }else{
-            text+=QString("Ha copiado el archivo %1 a carpeta %2").arg(nombre.c_str()).arg(direccion.c_str());
+            if(disk->cp(nombre,direccion,new_name)){
+                text+=QString("Ha copiado el archivo %1 a carpeta %2").arg(nombre.c_str()).arg(direccion.c_str());
+            }else{
+                text+=QString("Error al intentar copiar el archivo %1 a carpeta %2").arg(nombre.c_str()).arg(direccion.c_str());
+            }
         }
     }else if(parse[0]=="exit"){
         exit(0);

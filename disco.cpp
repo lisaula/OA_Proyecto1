@@ -2110,6 +2110,30 @@ bool Disco::cd(string nombre)
         return false;
 }
 
+bool Disco::cp(string nombre, string path, string new_name)
+{
+    if(nameExist(nombre) && nameExist(path) && !nameExist(new_name)){
+        inode_d scr,dest;
+        int num = seek(nombre);
+        scr = seekInode(num,this->path);
+        if(scr.permisos[0]!='d'){
+            num = seek(path);
+            dest = seekInode(num,this->path);
+            if(dest.permisos[0]=='d'){
+                inode_d temp = global;
+                global = dest;
+                global_pos =sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+                        +(num*sizeof(inode_d));
+                if(mkFile(scr.filesize,new_name)){
+                    global = temp;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 QString Disco::ls()
 {
     char* buffer;
@@ -2235,126 +2259,6 @@ bool Disco::mkFile(double size_file, string file_name)
                        out.seekp(global_pos,ios::beg);
                        out.write((char*)&global,sizeof(inode_d));
                        out.close();
-
-//                       cout<<"Imprime directos simples afuera de writeDS"<<endl;
-//                       for(int i =0; i<10;i++){
-//                           cout<<inodo.directos[i]<<" "<<ends;
-//                       }
-//                       cout<<endl;
-//                       cout<<"Indirectos simples"<<endl;
-//                       if(inodo.indirectossimples>0){
-//                       double move = inodo.indirectossimples*sb.sizeofblock;
-//                       char * tem = new char[sb.sizeofblock];
-//                       double t[2];
-//                       if(move>0){
-//                           read(tem,move,sb.sizeofblock);
-//                           memcpy((&t),tem,sb.sizeofblock);
-//                       }
-
-//                       for(int i =0; i<2;i++){
-//                           cout<<t[i]<<" "<<ends;
-//                       }
-//                       cout<<endl;
-//                       }
-//                       if(inodo.indirectosdobles>0){
-//                       cout<<"Indirectos dobles"<<endl;
-//                       double move = inodo.indirectosdobles*sb.sizeofblock;
-//                       char *tem = new char[sb.sizeofblock];
-//                       double t[2];
-//                       if(move>0){
-//                           read(tem,move,sb.sizeofblock);
-//                           memcpy((&t),tem,sb.sizeofblock);
-//                       }
-
-//                       for(int i =0; i<2;i++){
-//                           cout<<"ID"<<endl;
-//                           cout<<t[i]<<" "<<endl;
-//                           double t2[2];
-//                           if(t[i]!=-1){
-//                               move=t[i]*sb.sizeofblock;
-//                               read(tem,move,sb.sizeofblock);
-//                               memcpy((&t2),tem,sb.sizeofblock);
-//                               cout<<"IS"<<endl;
-//                               for(int i =0;i<2;i++){
-//                                   cout<<t2[i]<<" "<<ends;
-//                               }
-//                               cout<<endl;
-//                           }
-//                       }
-//                       cout<<endl;
-//                       }
-//                       char * buftemp = new char[sb.sizeofblock];
-//                       read(buftemp,4387*16,sb.sizeofblock);
-//                       double s[2];
-//                       memcpy((&s),buftemp,sb.sizeofblock);
-//                       cout<<"Afuera"<<endl;
-//                       cout<<s[0]<<endl;
-//                       cout<<s[1]<<endl;
-//                       double y[2];
-//                       double m[2];
-//                       double n[2];
-//                       cout<<"Indirectos triples"<<endl;
-//                       cout<<inodo.indirectostriples<<endl;
-////                       if(inodo.indirectostriples>0){
-////                           cout<<"IT"<<endl;
-////                           read(buftemp,inodo.indirectostriples*sb.sizeofblock,sb.sizeofblock);
-////                           memcpy(&y,buftemp,sb.sizeofblock);
-////                           cout<<y[0]<<" "<<y[1]<<ends;
-////                           cout<<endl;
-
-////                           read(buftemp,y[0]*sb.sizeofblock,sb.sizeofblock);
-////                           memcpy(&m,buftemp,sb.sizeofblock);
-////                           for(int i =0; i<2;i++){
-////                               cout<<"ID"<<endl;
-
-////                               cout<<m[i]<<endl;
-////                               cout<<"IS"<<endl;
-////                               if(m[i]!=-1){
-////                                   read(buftemp,m[i]*sb.sizeofblock,sb.sizeofblock);
-////                                   memcpy(&n,buftemp,sb.sizeofblock);
-////                                   for(int i =0;i<2;i++){
-////                                       cout<<n[i]<<ends;
-////                                   }
-////                                   cout<<endl;
-////                               }
-////                           }
-////                           cout<<endl;
-////                       }
-//                       int x=sb.sizeofblock/8;
-//                       char *buf = new char[sb.sizeofblock];
-//                       double z[x];
-//                       double v[x];
-//                       double c[x];
-//                       read(buf,(inodo.indirectostriples*sb.sizeofblock),(double)sb.sizeofblock);
-//                       memcpy(&z,buf,sb.sizeofblock);
-//                           //    memcpy(&ino,buf,size_block);
-//                               cout<<"Leido del Disco IT en!: "<<inodo.indirectostriples<<endl;
-//                               if(inodo.indirectostriples!=-1)
-//                               {
-//                                   for (int i = 0; i < x; ++i) {
-//                                       cout<<"ID en- "<<z[i]<<endl;
-//                                       char *buf2 = new char[sb.sizeofblock];
-//                                       read(buf2,z[i]*sb.sizeofblock,(double)sb.sizeofblock);
-//                                       memcpy(&v,buf2,sb.sizeofblock);
-//                               //        cout<<"ID del IT"<<endl;
-//                                       if(z[i]!=-1)
-//                                       {
-//                                           for (int j = 0; j < x; ++j) {
-//                                               cout<<"IS en- "<<v[j]<<endl;
-//                                               char *buf3 = new char[sb.sizeofblock];
-//                                               read(buf3,v[j]*sb.sizeofblock,(double)sb.sizeofblock);
-//                                               memcpy(&c,buf3,sb.sizeofblock);
-//                                   //            cout<<"IS del ID del IT"<<endl;
-//                                               if(v[j]!=-1)
-//                                               {
-//                                                   for (int k = 0; k < x; ++k) {
-//                                                       cout<<"data en- "<<c[k]<<endl;
-//                                                   }
-//                                               }
-//                                           }
-//                                       }
-//                                   }
-//                               }
                        return true;
                     }
 
