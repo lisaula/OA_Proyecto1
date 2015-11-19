@@ -86,7 +86,7 @@ public:
     bool crearDisco(string nombre, double disksizeMb, double blocksizeB);
     int getFreePosInArray(double * array, int size);
     double seek(string nombre);
-    vector<FileTable_d *> getFTfromDir(char * buffer, double size);
+    vector<FileTable_d *> getFTfromDir(char *buffer, double size);
     void saveFileInDir(string nombre, double inodenumdir);
     double seekByIndexInode(double index);
     void memcpybuffer(char *&dest, char* src, int sizeblock, double init, double size_src);

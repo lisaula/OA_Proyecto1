@@ -11,6 +11,7 @@ Widget::Widget(QWidget *parent) :
     setWindowTitle("FILE SYSTEM");
     scene = new QGraphicsScene();
     text = new QGraphicsSimpleTextItem();
+    ui->plainTextEdit->setReadOnly(true);
 
 }
 
@@ -21,10 +22,15 @@ Widget::~Widget()
 
 void Widget::insertar()
 {
-    //QGraphicsSimpleTextItem *text = new QGraphicsSimpleTextItem();
+    QGraphicsSimpleTextItem *text = new QGraphicsSimpleTextItem();
     QString t = commandPromt->logica();
-    ui->plainTextEdit->appendPlainText(t);
-    ui->plainTextEdit->setReadOnly(true);
+//    text->setText(t);
+//    string s;
+//    s=t.toStdString();
+    cout<<"Funcion insertar"<<endl;
+    //ui->plainTextEdit->appendPlainText(s.c_str());
+    cout<<"Salio funcion imprime "<<t.toStdString()<<endl;
+
 }
 
 void Widget::on_lineEdit_returnPressed()
@@ -43,7 +49,7 @@ void Widget::on_lineEdit_returnPressed()
 void Widget::on_add_file_clicked()
 {
     int res;
-    Dialog * d = new Dialog(this);
+    Dialog * d = new Dialog();
     res=d->exec();
     if(res == QDialog::Rejected){
         return;
@@ -55,5 +61,5 @@ void Widget::on_add_file_clicked()
 
     QString t = commandPromt->AddFile(urls[0].toStdString(),name[0].toStdString());
     ui->plainTextEdit->appendPlainText(t);
-    ui->plainTextEdit->setReadOnly(true);
+    //ui->plainTextEdit->setReadOnly(true);
 }

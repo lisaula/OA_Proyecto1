@@ -124,7 +124,10 @@ QString CP::parseLogic(vector<string> parse)
                 text+="El nombre solo permite 10 caracteres.";
         }
     }else if(m && parse[0]=="ls"){
+        cout<<"Entro ls"<<endl;
         text+=disk->ls();
+        cout<<"Salio ls"<<endl;
+        cout<<text.toStdString()<<endl;
     }else if(m && parse[0]=="cd"){
         if(parse.size()==2){
             string nombre = parse[1];
@@ -168,7 +171,7 @@ QString CP::parseLogic(vector<string> parse)
         }else{
             double tamano = std::atof(parse[2].c_str());
             if(disk->mkFile(tamano,nombre)){//disk->guardararchivo(current,tamano,nombre)){
-            text+= QString("Ha creado un archivo llamado %1 con tamano %2MB en el directorio %3").arg(nombre.c_str()).arg(tamano).arg(dir.c_str());
+            text+= QString("Ha creado un archivo llamado %1 con tamano %2MB en el directorio %3").arg(nombre.c_str()).arg((int)tamano).arg(dir.c_str());
             }
         }
     }else if(m && parse[0]=="rm" && parse.size()==2){

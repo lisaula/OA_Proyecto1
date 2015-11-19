@@ -135,10 +135,12 @@ double Disco::seek(string nombre)
 
 vector<FileTable_d*> Disco::getFTfromDir(char *buffer, double size)
 {
-    int cant = size/(double)sizeof(FileTable_d);
+    cout<<"Entro Get FT FRom DIR"<<endl;
+    int cant = size/24;//(double)sizeof(FileTable_d);
     double t = size;
     double cont=0;
-    char * buf = new char[sizeof(FileTable_d)];
+    char * buf = new char[24];//sizeof(FileTable_d)];
+    cout<<"Entro Get FT 2"<<endl;
     vector<FileTable_d*>array;
     FileTable_d *ft = new FileTable_d();
     cout<<cant<<" cantidad de FT"<<endl;
@@ -521,7 +523,7 @@ bool Disco::mount(string nombre)
 //    cout<<"FS_blockused "<<FS_blockused<<endl;
 //    cout<<ft_array[0].name<<endl;
     cout<<"FS BLOCKUSED "<<FS_blockused<<endl;
-    cout<<"ES bloque numero "<<1512<<" en uso "<<is_block_in_use(bitmap,1512)<<endl;
+    cout<<"ES bloque numero "<<FS_blockused-2<<" en uso "<<is_block_in_use(bitmap,FS_blockused-2)<<endl;
     cout<<"ES bloque numero "<<FS_blockused-1<<" en uso "<<is_block_in_use(bitmap,FS_blockused-1)<<endl;
     cout<<"ES bloque numero "<<FS_blockused<<" en uso "<<is_block_in_use(bitmap,FS_blockused)<<endl;
     cout<<"ES bloque numero "<<FS_blockused+1<<" en uso "<<is_block_in_use(bitmap,FS_blockused+1)<<endl;
@@ -1164,7 +1166,7 @@ bool Disco::writeBloque(char *bloque, inode_d &inodo, double size, string permis
             int array_pos=0;
             int array_ISpos=0;
             double difID=0;
-            ocupados -= 10+x;
+            ocupados -= (10+x);
             char *buf = new char[x*sizeof(double)];
             bool t=false;
             if(inodo.indirectosdobles ==-1){
@@ -1184,6 +1186,7 @@ bool Disco::writeBloque(char *bloque, inode_d &inodo, double size, string permis
                 memcpy((&ID),buftem,x*sizeof(double));
                 cout<<"entro"<<endl;
                 difID = (ocupados)- (floor(ocupados));
+                cout<<"Ocupados"<<endl;
                 array_pos = floor(ocupados/x);
                 if(ID[array_pos]==-1){
                     for(int i =0; i<x;i++){
@@ -1194,12 +1197,13 @@ bool Disco::writeBloque(char *bloque, inode_d &inodo, double size, string permis
                     read(buftem,IS_pos,sb.sizeofblock);
                     memcpy((&IS),buftem,x*sizeof(double));
                 }
-                if(ocupados>=x){
+//                if(ocupados>=x){
 
-                    array_ISpos = floor(ocupados-x);
-                }else{
-                    array_ISpos = floor(ocupados);
-                }
+//                    array_ISpos =ocupados floor(ocupados-x);
+//                }else{
+//                    array_ISpos = floor(ocupados);
+//                }
+                array_ISpos = ocupados - x*(array_pos);
 
 //                cout<<"ocupados "<<ocupados<<endl;
 //                cout<<"DIFID "<<difID<<endl;
@@ -1257,8 +1261,8 @@ bool Disco::writeBloque(char *bloque, inode_d &inodo, double size, string permis
 //                        }
                         //
                         int pos = getFreePosInArray(IS,x);
-                        cout<<"POS EN NUEVO "<<pos<<endl;
-                        IS[array_ISpos] = blocksindex[0];
+                        cout<<"POS EN NUEVO "<<pos<<" array IS_pos"<<array_ISpos<<endl;
+                        IS[pos] = blocksindex[0];
                         cout<<IS[pos]<<endl;
                         move_to=blocksindex[0]*sb.sizeofblock;
                         cout<<"Move to "<<move_to<<endl;
@@ -1398,15 +1402,15 @@ bool Disco::writeBloque(char *bloque, inode_d &inodo, double size, string permis
                         }
                     }
                 }
-                if(ocupados>=pow(x,2)){
+//                if(ocupados>=pow(x,2)){
 
-                    array_ISpos = floor(ocupados-pow(x,2));
-                }else if(ocupados >= x){
-                    array_ISpos = floor(ocupados-x);
-                }else{
-                    array_ISpos = floor(ocupados);
-                }
-
+//                    array_ISpos = floor(ocupados-pow(x,2));
+//                }else if(ocupados >= x){
+//                    array_ISpos = floor(ocupados-x);
+//                }else{
+//                    array_ISpos = floor(ocupados);
+//                }
+                array_ISpos=ocupados-x*(floor(ocupados)/x);
 
                 //nuevo aqui
 //                ID_pos = *sb.sizeofblock;
@@ -1648,7 +1652,7 @@ vector<double> Disco::getUsedBloques(inode_d inodo)
     cout<<"Imprime directos simples en get Used Bloques"<<endl;
     for(int i =0; i<10;i++){
         if(inodo.directos[i]>0){
-            cout<<inodo.directos[i]<<" "<<ends;
+            //cout<<inodo.directos[i]<<" "<<ends;
             bloques.push_back(inodo.directos[i]);
         }
     }
@@ -1665,7 +1669,7 @@ vector<double> Disco::getUsedBloques(inode_d inodo)
 
     for(int i =0; i<x;i++){
         if(t[i]>0){
-            cout<<t[i]<<" "<<ends;
+            //cout<<t[i]<<" "<<ends;
             bloques.push_back(t[i]);
         }
     }
@@ -1683,17 +1687,17 @@ vector<double> Disco::getUsedBloques(inode_d inodo)
     }
 
     for(int i =0; i<x;i++){
-        cout<<"ID"<<endl;
-        cout<<t[i]<<" "<<endl;
+//        cout<<"ID"<<endl;
+//        cout<<t[i]<<" "<<endl;
         double t2[x];
         if(t[i]!=-1){
             move=t[i]*sb.sizeofblock;
             read(tem,move,sb.sizeofblock);
             memcpy((&t2),tem,sb.sizeofblock);
-            cout<<"IS"<<endl;
+            //cout<<"IS"<<endl;
             for(int i =0;i<x;i++){
                 if(t2[i]>0){
-                    cout<<t2[i]<<" "<<ends;
+                    //cout<<t2[i]<<" "<<ends;
                     bloques.push_back(t2[i]);
                 }
             }
@@ -1703,7 +1707,7 @@ vector<double> Disco::getUsedBloques(inode_d inodo)
     cout<<endl;
     }
     cout<<"Indirectos triples"<<endl;
-    cout<<inodo.indirectostriples<<endl;
+   // cout<<inodo.indirectostriples<<endl;
     char *buf = new char[sb.sizeofblock];
     double z[x];
     double v[x];
@@ -1715,7 +1719,7 @@ vector<double> Disco::getUsedBloques(inode_d inodo)
             if(inodo.indirectostriples!=-1)
             {
                 for (int i = 0; i < x; ++i) {
-                    cout<<"ID en- "<<z[i]<<endl;
+                    //cout<<"ID en- "<<z[i]<<endl;
                     char *buf2 = new char[sb.sizeofblock];
                     read(buf2,z[i]*sb.sizeofblock,(double)sb.sizeofblock);
                     memcpy(&v,buf2,sb.sizeofblock);
@@ -1723,7 +1727,7 @@ vector<double> Disco::getUsedBloques(inode_d inodo)
                     if(z[i]!=-1)
                     {
                         for (int j = 0; j < x; ++j) {
-                            cout<<"IS en- "<<v[j]<<endl;
+                            //cout<<"IS en- "<<v[j]<<endl;
                             char *buf3 = new char[sb.sizeofblock];
                             read(buf3,v[j]*sb.sizeofblock,(double)sb.sizeofblock);
                             memcpy(&c,buf3,sb.sizeofblock);
@@ -1732,7 +1736,7 @@ vector<double> Disco::getUsedBloques(inode_d inodo)
                             {
                                 for (int k = 0; k < x; ++k) {
                                     if(c[k]>0){
-                                        cout<<"data en- "<<c[k]<<endl;
+                                        //cout<<"data en- "<<c[k]<<endl;
                                         bloques.push_back(c[k]);
                                     }
                                 }
@@ -1945,123 +1949,127 @@ bool Disco::crearBloqueFT()
 bool Disco::mkDir(string nombre)
 {
     if(sb.freeinode>0){
-        char *buffer = new char[sizeof(inode_d)];
-        int inode_pos = nextAvailable(bitmap_inode,false);
-        cout<<"Inode pos "<<inode_pos<<endl;
-        double move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
-                +(inode_pos*sizeof(inode_d));
-        read(buffer,move_to,sizeof(inode_d));
-        inode_d *inodo = new inode_d();
-        memcpy((inodo),buffer,sizeof(inode_d));
-        int f_pos = getNextFreeFileTable();
-        FileTable_d *ft=new FileTable_d();
-        FileTable_d back;
-        strcpy(back.name,"..");
-        back.inode_index=global_index;
-        cout<<back.inode_index<<"inodo Index en back"<<endl;
-        cout<<"global index "<<global_index<<endl;
+        if(!nameExist(nombre)){
+            char *buffer = new char[sizeof(inode_d)];
+            int inode_pos = nextAvailable(bitmap_inode,false);
+            cout<<"Inode pos "<<inode_pos<<endl;
+            double move_to = sizeof(superBlock_d)+(bitmap_size*sizeof(char))+(bit_inode_size*sizeof(char))+(sizeof(FileTable_d)*sb.cantofinode)
+                    +(inode_pos*sizeof(inode_d));
+            read(buffer,move_to,sizeof(inode_d));
+            inode_d *inodo = new inode_d();
+            memcpy((inodo),buffer,sizeof(inode_d));
+            int f_pos = getNextFreeFileTable();
+            FileTable_d *ft=new FileTable_d();
+            FileTable_d back;
+            strcpy(back.name,"..");
+            back.inode_index=global_index;
+            cout<<back.inode_index<<"inodo Index en back"<<endl;
+            cout<<"global index "<<global_index<<endl;
 
-        strcpy(ft->name,nombre.c_str());
-        cout<<"FT name "<<ft->name<<endl;
-        ft->inode_index=inode_pos;
-        cout<<"INODE POSSSSS "<<inode_pos<<endl;
-        cout<<ft->inode_index<<" - inodo Index en ft"<<endl;
-        ft_array[f_pos]=(*ft);
-        //aqui me quede
-        cout<<"Inode pos "<<inode_pos<<" fpos "<<f_pos<<endl;
-        inodo->blockuse=0;
-        inodo->filesize=0;
-        strcpy(inodo->permisos,"drwxrwxrwx");
-        double d =sizeof(FileTable_d);
-        //cout<<"Size of "<<sizeof(FileTable_d)<<" > sizeblock "<<sb.sizeofblock<<" div "<<ceil(d/sb.sizeofblock)<<endl;
-        inodo->blockuse=0;
-        for(int i =0;i<10;i++){
-            inodo->directos[i]=-1;
-        }
-        inodo->indirectossimples=-1;
-        inodo->indirectosdobles=-1;
-        inodo->indirectostriples=-1;
-        inodo->filesize=0;
-        if(sizeof(FileTable_d)>sb.sizeofblock){
+            strcpy(ft->name,nombre.c_str());
+            cout<<"FT name "<<ft->name<<endl;
+            ft->inode_index=inode_pos;
+            cout<<"INODE POSSSSS "<<inode_pos<<endl;
+            cout<<ft->inode_index<<" - inodo Index en ft"<<endl;
+            ft_array[f_pos]=(*ft);
+            //aqui me quede
+            cout<<"Inode pos "<<inode_pos<<" fpos "<<f_pos<<endl;
+            inodo->blockuse=0;
+            inodo->filesize=0;
+            strcpy(inodo->permisos,"drwxrwxrwx");
+            double d =sizeof(FileTable_d);
+            //cout<<"Size of "<<sizeof(FileTable_d)<<" > sizeblock "<<sb.sizeofblock<<" div "<<ceil(d/sb.sizeofblock)<<endl;
+            inodo->blockuse=0;
+            for(int i =0;i<10;i++){
+                inodo->directos[i]=-1;
+            }
+            inodo->indirectossimples=-1;
+            inodo->indirectosdobles=-1;
+            inodo->indirectostriples=-1;
+            inodo->filesize=0;
+            if(sizeof(FileTable_d)>sb.sizeofblock){
+                char * tempbuffer = new char[sb.sizeofblock];
+                double t = ceil((double)sizeof(FileTable_d)/sb.sizeofblock);
+
+    //            if(t*sb.sizeofblock < sizeof(FileTable_d))
+    //                t+=1;
+                double temp=0;
+                double size_temp=sizeof(FileTable_d);
+                cout<<"t "<<t<<endl;
+                for(int i =0;i<t;i++){
+                   if(size_temp<=0)
+                       break;
+
+                   memcpybuffer(tempbuffer,(char*)ft,sb.sizeofblock,temp,sizeof(FileTable_d));
+                   cout<<"buffer en mkdir "<<tempbuffer<<endl;
+                   temp+=sb.sizeofblock;
+                   if(size_temp>sb.sizeofblock){
+                        writeBloque(tempbuffer,global,sb.sizeofblock,"drwxrwxrwx");
+                   }else{
+                        writeBloque(tempbuffer,global,size_temp,"drwxrwxrwx");
+                   }
+                   size_temp-=sb.sizeofblock;
+                   cout<<i<<" i"<<endl;
+                }
+            }else{
+                writeBloque((char*)ft,global,sizeof(FileTable_d),"En drwxrwxrwx");
+            }
+            cout<<"Escribio FT "<<ft->name<<endl;
             char * tempbuffer = new char[sb.sizeofblock];
-            double t = ceil((double)sizeof(FileTable_d)/sb.sizeofblock);
+            if(sizeof(FileTable_d)>sb.sizeofblock){
+                double t = ceil((double)sizeof(FileTable_d)/sb.sizeofblock);
 
-//            if(t*sb.sizeofblock < sizeof(FileTable_d))
-//                t+=1;
-            double temp=0;
-            double size_temp=sizeof(FileTable_d);
-            cout<<"t "<<t<<endl;
-            for(int i =0;i<t;i++){
-               if(size_temp<=0)
-                   break;
+    //            if(t*sb.sizeofblock < sizeof(FileTable_d))
+    //                t+=1;
+                double temp=0;
+                double size_temp=sizeof(FileTable_d);
 
-               memcpybuffer(tempbuffer,(char*)ft,sb.sizeofblock,temp,sizeof(FileTable_d));
-               cout<<"buffer en mkdir "<<tempbuffer<<endl;
-               temp+=sb.sizeofblock;
-               if(size_temp>sb.sizeofblock){
-                    writeBloque(tempbuffer,global,sb.sizeofblock,"drwxrwxrwx");
-               }else{
-                    writeBloque(tempbuffer,global,size_temp,"drwxrwxrwx");
-               }
-               size_temp-=sb.sizeofblock;
-               cout<<i<<" i"<<endl;
+                cout<<"t "<<t<<endl;
+                for(int i =0;i<t;i++){
+                   if(size_temp<=0)
+                       break;
+
+                   memcpybuffer(tempbuffer,(char*)&back,sb.sizeofblock,temp,sizeof(FileTable_d));
+                   temp+=sb.sizeofblock;
+                   cout<<"tempbuffer "<<tempbuffer<<endl;
+                   if(size_temp>sb.sizeofblock){
+                        writeBloque(tempbuffer,(*inodo),sb.sizeofblock,"drwxrwxrwx");
+                   }else{
+                        writeBloque(tempbuffer,(*inodo),size_temp,"drwxrwxrwx");
+                   }
+                   size_temp-=sb.sizeofblock;
+                   cout<<"size of temp "<<size_temp<<endl;
+                   //cout<<i<<endl;
+                }
+            }else{
+                writeBloque((char*)&back,(*inodo),sizeof(FileTable_d),"drwxrwxrwx");
             }
+            cout<<"Escribiendo back "<<back.name<<endl;
+    //        cout<<"Permisos Global "<<global.permisos<<" size "<<global.filesize<<endl;
+    //        cout<<"Permisos inodo "<<inodo->permisos<<" size "<<inodo->filesize<<endl;
+            ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
+            //actualizando super block
+            sb.freeinode--;
+            out.write((char*)&sb,sizeof(superBlock_d));
+
+            //actualizando bitmap
+            out.write(bitmap,bitmap_size*sizeof(char));
+            //actualizando bitmap de inodes
+            out.write(bitmap_inode,bit_inode_size*sizeof(char));
+            //actualizando filetable
+            double ftb_pos = f_pos*sizeof(FileTable_d);
+            out.seekp(ftb_pos,ios::cur);
+            out.write((char*)ft,sizeof(FileTable_d));
+            //actualizando inodo
+            out.seekp(move_to,ios::beg);
+            out.write(((char*)inodo),sizeof(inode_d));
+            out.seekp(global_pos,ios::beg);
+            out.write((char*)&global,sizeof(inode_d));
+            out.close();
+            return true;
         }else{
-            writeBloque((char*)ft,global,sizeof(FileTable_d),"En drwxrwxrwx");
+            cout<<"No hay inodos disponibles "<<endl;
         }
-        char * tempbuffer = new char[sb.sizeofblock];
-        if(sizeof(FileTable_d)>sb.sizeofblock){
-            double t = ceil((double)sizeof(FileTable_d)/sb.sizeofblock);
-
-//            if(t*sb.sizeofblock < sizeof(FileTable_d))
-//                t+=1;
-            double temp=0;
-            double size_temp=sizeof(FileTable_d);
-
-            cout<<"t "<<t<<endl;
-            for(int i =0;i<t;i++){
-               if(size_temp<=0)
-                   break;
-
-               memcpybuffer(tempbuffer,(char*)&back,sb.sizeofblock,temp,sizeof(FileTable_d));
-               temp+=sb.sizeofblock;
-               cout<<"tempbuffer "<<tempbuffer<<endl;
-               if(size_temp>sb.sizeofblock){
-                    writeBloque(tempbuffer,(*inodo),sb.sizeofblock,"drwxrwxrwx");
-               }else{
-                    writeBloque(tempbuffer,(*inodo),size_temp,"drwxrwxrwx");
-               }
-               size_temp-=sb.sizeofblock;
-               cout<<"size of temp "<<size_temp<<endl;
-               //cout<<i<<endl;
-            }
-        }else{
-            writeBloque((char*)&back,(*inodo),sizeof(FileTable_d),"drwxrwxrwx");
-        }
-//        cout<<"Permisos Global "<<global.permisos<<" size "<<global.filesize<<endl;
-//        cout<<"Permisos inodo "<<inodo->permisos<<" size "<<inodo->filesize<<endl;
-        ofstream out(path.c_str(), ios::in | ios::out | ios::binary);
-        //actualizando super block
-        sb.freeinode--;
-        out.write((char*)&sb,sizeof(superBlock_d));
-
-        //actualizando bitmap
-        out.write(bitmap,bitmap_size*sizeof(char));
-        //actualizando bitmap de inodes
-        out.write(bitmap_inode,bit_inode_size*sizeof(char));
-        //actualizando filetable
-        double ftb_pos = f_pos*sizeof(FileTable_d);
-        out.seekp(ftb_pos,ios::cur);
-        out.write((char*)ft,sizeof(FileTable_d));
-        //actualizando inodo
-        out.seekp(move_to,ios::beg);
-        out.write(((char*)inodo),sizeof(inode_d));
-        out.seekp(global_pos,ios::beg);
-        out.write((char*)&global,sizeof(inode_d));
-        out.close();
-        return true;
-    }else{
-        cout<<"No hay inodos disponibles "<<endl;
     }
     return false;
 }
@@ -2139,10 +2147,12 @@ bool Disco::addFile(string direccion, string nombre)
     ifstream in(direccion.c_str(), ios::in|ios::out|ios::binary);
     char* bloque = new char[sb.sizeofblock];
     in.seekg(0,ios::end);
-    double size = in.tellg();
-    double size_file = size;
+    int size = in.tellg();
+    int size_file = size;
+    cout<<"size del archivo "<<size<<endl;
     vector<double>needed = fileVerification(size_file);
     in.seekg(0,ios::beg);
+    in.close();
     double cant = ceil((double)size/sb.sizeofblock);
     if(needed[2]==-1){
         cout<<"Archivo muy grande para la capacidad del inodo"<<endl;
@@ -2251,17 +2261,26 @@ bool Disco::addFile(string direccion, string nombre)
 QString Disco::ls()
 {
     char* buffer;
+
     vector<FileTable_d*>array;
+    cout<<"No paso"<<endl;
     vector<double>bloques = getUsedBloques(global);
+    cout<<"No paso2"<<endl;
     getData(buffer,bloques,global.filesize);
+    cout<<"No paso3"<<endl;
     array = getFTfromDir(buffer,global.filesize);
+    cout<<"No paso33333333"<<endl;
     inode_d a;
     QString text="\nPermissions - #IN - user - user -   size  - name\n";
+    cout<<"size array "<<array.size()<<endl;
     for(int i =0; i<array.size();i++){
+        cout<<"i en array "<<i<<endl;
         a = seekInode(array[i]->inode_index,path);
         cout<<array[i]->inode_index<<endl;
         text+=QString("%1  -  %2  - root - root - %3 - %4\n").arg(a.permisos).arg(array[i]->inode_index).arg(a.filesize).arg(array[i]->name);
+        cout<<"Final for"<<text.toStdString()<<endl;
     }
+    cout<<"salio del for"<<endl;
     return text;
 
 }
@@ -2276,6 +2295,7 @@ inode_d Disco::seekInode(double num, string path)
     in.read(buffer, sizeof(inode_d));
     inode_d a;
     memcpy((&a),buffer,sizeof(inode_d));
+    in.close();
     return a;
 }
 
