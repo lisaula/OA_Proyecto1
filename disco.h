@@ -74,6 +74,7 @@ public:
     bool exportFile(string nombre);
     string path;
     bool crearBloqueFT();
+    bool nameExistinGlobal(string nombre);
     bool mkDir(string nombre);
     bool cd(string nombre);
     bool cp(string nombre, string path, string new_name);

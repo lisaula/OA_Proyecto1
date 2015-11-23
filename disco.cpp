@@ -812,7 +812,7 @@ int Disco::getNextFreeFileTable()
 
 bool Disco::rm(string nombre)
 {
-    if(nameExist(nombre)){
+    if(nameExistinGlobal(nombre)){
         int num = seek(nombre);
         inode a = seekInode(num,path);
         if(a.permisos[0]!='d'){
@@ -1959,6 +1959,28 @@ bool Disco::crearBloqueFT()
         }
     }
 
+}
+
+bool Disco::nameExistinGlobal(string nombre)
+{
+    cout<<"no paso"<<endl;
+    vector<FileTable_d*>array_temp;
+    char * buffer;
+    vector<double>bloques = getUsedBloques(global);
+    getData(buffer,bloques,global.filesize);
+    cout<<global.filesize<<endl;
+    array_temp = getFTfromDir(buffer,global.filesize);
+    inode t;
+    bool found=false;
+    cout<<array_temp.size()<<" size array"<<endl;
+    double num=0;
+    for(int i =0;i<array_temp.size();i++){
+        cout<<array_temp[i]->name<<endl;
+        if(array_temp[i]->name == nombre){
+            return true;
+        }
+    }
+    return false;
 }
 
 bool Disco::mkDir(string nombre)
