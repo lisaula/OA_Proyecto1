@@ -20,6 +20,10 @@ public:
     void setActual(QString le);
     QString AddFile(string path, string nombre);
     CP();
+    double getBlocks();
+    double getFS_used_block();
+    Disco* getDisk();
+    bool getMount();
 private:
     Disco *disk;
     string DISK_PATH="DISKS/";

@@ -29,6 +29,26 @@ CP::CP()
     disk= new Disco();
 }
 
+double CP::getBlocks()
+{
+    return disk->sb.cantofblock;
+}
+
+double CP::getFS_used_block()
+{
+    return disk->FS_blockused;
+}
+
+Disco *CP::getDisk()
+{
+    return disk;
+}
+
+bool CP::getMount()
+{
+    return m;
+}
+
 QString CP::AddFile(string path, string nombre)
 {
     if(disk->addFile(path,nombre)){
@@ -124,10 +144,10 @@ QString CP::parseLogic(vector<string> parse)
                 text+="El nombre solo permite 10 caracteres.";
         }
     }else if(m && parse[0]=="ls"){
-        cout<<"Entro ls"<<endl;
+        //cout<<"Entro ls"<<endl;
         text+=disk->ls();
-        cout<<"Salio ls"<<endl;
-        cout<<text.toStdString()<<endl;
+//        cout<<"Salio ls"<<endl;
+//        cout<<text.toStdString()<<endl;
     }else if(m && parse[0]=="cd"){
         if(parse.size()==2){
             string nombre = parse[1];

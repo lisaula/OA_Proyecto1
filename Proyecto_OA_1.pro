@@ -16,12 +16,18 @@ SOURCES += main.cpp\
         widget.cpp \
     cp.cpp \
     disco.cpp \
-    dialog.cpp
+    dialog.cpp \
+    table.cpp \
+    tree.cpp
 
 HEADERS  += widget.h \
     cp.h \
     disco.h \
-    dialog.h
+    dialog.h \
+    table.h \
+    tree.h
 
 FORMS    += widget.ui \
-    dialog.ui
+    dialog.ui \
+    table.ui \
+    tree.ui
