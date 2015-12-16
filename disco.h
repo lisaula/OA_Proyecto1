@@ -6,6 +6,7 @@
 #include <cstring>
 #include<QDir>
 #include<math.h>
+#include<Btree.h>
 
 
 using namespace std;
@@ -83,6 +84,7 @@ public:
     bool mkFile(double size_file, string file_name);
     void setFiletables(double numBlock, string path);
     FileTable_d *ft_array;
+    Btree<Node,3>tree;
     bool crearDisco(string nombre, double disksizeMb, double blocksizeB);
     int getFreePosInArray(double * array, int size);
     double seek(string nombre);

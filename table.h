@@ -4,6 +4,8 @@
 #include <QDialog>
 #include<vector>
 #include<iostream>
+#include<QTableWidgetItem>
+#include<QList>
 
 using namespace std;
 
@@ -23,6 +25,7 @@ public:
     void initTable();
 private:
     QStringList usados;
+    QList<QTableWidgetItem*> listItems;
     Ui::Table *ui;
 };
 

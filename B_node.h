@@ -1,8 +1,9 @@
 #ifndef B_NODE_H
 #define B_NODE_H
 #include <iostream>
-#include"nino.h"
 #include<disco.h>
+#include<node.h>
+
 using namespace std;
 
 template <class Type, int order> class Btree;
@@ -10,10 +11,10 @@ template <class Type, int order> class Btree;
 template <class Type, int order> class B_node {
 // data members:
     friend class Btree< Type, order>;
-private:
+public:
 	int count;
-    FileTable_d* data[order-1];
-    B_node<Nino, order> *childs[order];
+    Node* data[order-1];
+    B_node<Node, order> *childs[order];
 // constructor:
 public:
 	B_node();
@@ -27,6 +28,8 @@ template <class Type, int order> B_node< Type,order >::B_node(){
 	this->count = 0;
 	for(int i=0;i < order;i++) 
 		this->childs[i] = NULL;
+    for(int i =0; i < order-1;i++)
+        this->data[i]=NULL;
 }
 
 template< class Type, int order > bool B_node< Type,order>::NodeFull() const{
@@ -39,7 +42,7 @@ template<  class Type, int order > bool B_node< Type, order>::NodeEmpty() const 
 template< class Type, int order > void B_node< Type,order>::mostrarNodo() { 
 	
 	for(int i=0; i< this->count ;i++) 
-        cout <<"\t"<< data[i]->nombre<<", ";
+        cout <<"\t"<< data[i]->name<<", ";
 	
 	cout <<"\n"; 
 	

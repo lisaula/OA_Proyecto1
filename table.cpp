@@ -25,6 +25,7 @@ Table::Table(QWidget *parent, double cant, double fs_used):
             item->setBackground(brush);
         }
         ui->tableWidget->setItem(ui->tableWidget->rowCount()-1,columna,item);
+        listItems.push_back(item);
         columna++;
     }
 }
@@ -34,8 +35,9 @@ void Table::set_color(vector<double> blocks)
     QTableWidgetItem *item = new QTableWidgetItem();
     QBrush brush = getNewColor();
     for(int i =0;i<blocks.size();i++){
-        item = ui->tableWidget->findItems(QString::number(blocks[i]),Qt::MatchExactly).first();
-        item->setBackground(brush);
+        //item = ui->tableWidget->findItems(QString::number(blocks[i]),Qt::MatchExactly).first();
+        listItems[blocks[i]]->setBackground(brush);
+        //item->setBackground(brush);
     }
 }
 

@@ -12,25 +12,25 @@ protected: // dato members
 	B_node<Type, order> *root;
 private:
 	void recInorder(B_node<Type, order> * current );
-    bool  Encontrar( B_node<Type, order> *current, FileTable_d *&target);
+    bool  Encontrar( B_node<Type, order> *current, Node *&target);
 
 public: // publics.
 	Btree();
 	// travesling
 	void inOrder();
-    bool buscar( FileTable_d *&searchitem );
+    bool buscar( Node *&searchitem );
 	void mostrarArbol();
 	// insertion
-    bool buscarEnNodo( B_node<Type, order> *current, FileTable_d* &target, int &position );
-    void insertar(FileTable_d* &new_entry);
-    void insertarEnRecursion( B_node<Type, order> *current, FileTable_d* &new_entry,FileTable_d* &median,B_node<Type, order> * &rightchilds , bool &result );
-    void insertarEnNodo(B_node<Type, order> *current, FileTable_d* &entry, B_node<Type, order> *rightchilds, int position);
-    void dividirNodo( B_node<Type, order> *current,  FileTable_d* &extra_entry,   B_node<Type, order> *extra_childs,  int position,
-        B_node<Type, order> * &right_half,   FileTable_d* &median);
+    bool buscarEnNodo( B_node<Type, order> *current, Node* &target, int &position );
+    void insertar(Node* &new_entry);
+    void insertarEnRecursion( B_node<Type, order> *current, Node* &new_entry,Node* &median,B_node<Type, order> * &rightchilds , bool &result );
+    void insertarEnNodo(B_node<Type, order> *current, Node* &entry, B_node<Type, order> *rightchilds, int position);
+    void dividirNodo( B_node<Type, order> *current,  Node* &extra_entry,   B_node<Type, order> *extra_childs,  int position,
+        B_node<Type, order> * &right_half,   Node* &median);
 	// eliminacion
 
-    void remover( FileTable_d *&target );
-    void removerEnRecursion( B_node<Type, order> *current, FileTable_d* &target );
+    void remover( Node *&target );
+    void removerEnRecursion( B_node<Type, order> *current, Node* &target );
 	void removerDato(  B_node<Type, order> *current, int position  );
 	void copiarDePredecesor(  B_node<Type, order> *current, int position );
 	// funciones para restaurar despues de la eliminacion
@@ -39,7 +39,7 @@ public: // publics.
 	void moverAlaDerecha( B_node<Type, order> *current , int position );
 	void combinar( B_node<Type, order> *current, int position );
     int hashCode(string text);
-	
+    void inOrder(B_node<Type, order> *current, vector<Node*>&vector);
 	void imprimirArbol( B_node<Type, order> *current );
 };
 
@@ -59,6 +59,24 @@ template <class Type, int order> int  Btree<Type,order>::hashCode(string text){
     return hash;
 }
 
+template <class Type, int order> void Btree<Type,order>::inOrder(B_node<Type, order> *current, vector<Node *> &vector)
+{
+        if(!current){
+            return "";
+        }else{
+            for(int i =0; i < current->count;i++){
+                if(current->data[i]!=NULL){
+//                    acu += QString("%1 ").arg(current->data[i]);
+                    vector.push_back(current->data[i]);
+                }
+                inOrder(current->childs[i],vector);
+                if(i == current->count-1){
+                    inOrder(current->childs[i+1],vector);
+                }
+            }
+        }
+}
+
 template <class Type, int order> void Btree<Type,order>::inOrder(){  
 	return recInorder( root );   
 }
@@ -74,11 +92,11 @@ template <class Type, int order> void Btree<Type,order>::recInorder(B_node<Type,
 		}
 	}
 }
-template <class Type, int order> bool Btree<Type,order>::buscar(FileTable_d *&searchitem ){
+template <class Type, int order> bool Btree<Type,order>::buscar(Node *&searchitem ){
 	
 	return Encontrar( root , searchitem );
 }
-template <class Type, int order> bool Btree<Type,order>::Encontrar(B_node<Type, order> *current, FileTable_d *&target ){
+template <class Type, int order> bool Btree<Type,order>::Encontrar(B_node<Type, order> *current, Node *&target ){
 	
 	bool result = false;
 	int position;
@@ -93,17 +111,17 @@ template <class Type, int order> bool Btree<Type,order>::Encontrar(B_node<Type, 
 }
 
 
-template <class Type, int order> bool Btree<Type,order>::buscarEnNodo(B_node<Type, order> *current, FileTable_d *&target, int &position ){
+template <class Type, int order> bool Btree<Type,order>::buscarEnNodo(B_node<Type, order> *current, Node *&target, int &position ){
 	position=0;
-    while (position < current->count && target->index > current->data[position]->index)
+    while (position < current->count && target->hash > current->data[position]->hash)
 		position++; 
-    if (position < current->count && target->index == current->data[position]->index)
+    if (position < current->count && target->hash == current->data[position]->hash)
 		return true;
 	else
 		return false;
 }
-template <class Type, int order> void Btree<Type,order>::insertar(FileTable_d *&new_entry){
-    FileTable_d* median;
+template <class Type, int order> void Btree<Type,order>::insertar(Node *&new_entry){
+    Node* median;
 	B_node<Type, order> *rightchilds, *new_root;
 	bool  result ; 
 	insertarEnRecursion(root, new_entry, median, rightchilds , result);
@@ -117,7 +135,7 @@ template <class Type, int order> void Btree<Type,order>::insertar(FileTable_d *&
 	}
 }
 template <class Type, int order> void Btree<Type,order>::insertarEnRecursion(B_node<Type, order> *current,
-    FileTable_d *&new_entry, FileTable_d *&median, B_node<Type, order> * &rightchilds , bool &result ){
+    Node *&new_entry, Node *&median, B_node<Type, order> * &rightchilds , bool &result ){
 
 		int position;
 		if (current == NULL) {
@@ -134,7 +152,7 @@ template <class Type, int order> void Btree<Type,order>::insertarEnRecursion(B_n
 				return; 
 			}
 			else {
-                FileTable_d *extra_entry;
+                Node *extra_entry;
 				B_node<Type, order> *extra_childs;
 
 				insertarEnRecursion(current->childs[position], new_entry,extra_entry, extra_childs , result);
@@ -151,7 +169,7 @@ template <class Type, int order> void Btree<Type,order>::insertarEnRecursion(B_n
 		}
 }
 template <class Type, int order> void Btree<Type,order>::insertarEnNodo(B_node<Type, order> *current,
-    FileTable_d *&entry, B_node<Type, order> *rightchilds, int position){
+    Node *&entry, B_node<Type, order> *rightchilds, int position){
 		int i; 
 		for(i=current->count-1;i>= position;i--){ 
 			current->data[i+1]=current->data[i];
@@ -161,8 +179,8 @@ template <class Type, int order> void Btree<Type,order>::insertarEnNodo(B_node<T
 		current->childs[i+2]=rightchilds ;
 		current->count++;
 }
-template <class Type, int order> void Btree<Type,order>::dividirNodo(B_node<Type, order> *current, FileTable_d *&extra_entry,   B_node<Type, order> *extra_childs,  int position,
-    B_node<Type, order> * &right_half,   FileTable_d *&median){
+template <class Type, int order> void Btree<Type,order>::dividirNodo(B_node<Type, order> *current, Node *&extra_entry,   B_node<Type, order> *extra_childs,  int position,
+    B_node<Type, order> * &right_half,   Node *&median){
 
 		right_half = new B_node<Type,order>;
 		int mid = order/2;
@@ -189,7 +207,7 @@ template <class Type, int order> void Btree<Type,order>::dividirNodo(B_node<Type
 		current->count--;
 }
 
-template <class Type, int order> void Btree<Type,order>::remover(FileTable_d *&target ){
+template <class Type, int order> void Btree<Type,order>::remover(Node *&target ){
 
 	removerEnRecursion( root , target );
 	if( root != NULL && root->count == 0 ){
@@ -198,7 +216,7 @@ template <class Type, int order> void Btree<Type,order>::remover(FileTable_d *&t
 		delete delete_root;
 	}
 }
-template <class Type, int order> void Btree<Type,order>::removerEnRecursion(B_node<Type, order> *current, FileTable_d *&target ){
+template <class Type, int order> void Btree<Type,order>::removerEnRecursion(B_node<Type, order> *current, Node *&target ){
 
 	int position;
 	if( current == NULL ){

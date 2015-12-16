@@ -18,7 +18,8 @@ SOURCES += main.cpp\
     disco.cpp \
     dialog.cpp \
     table.cpp \
-    tree.cpp
+    tree.cpp \
+    node.cpp
 
 HEADERS  += widget.h \
     cp.h \
@@ -27,7 +28,8 @@ HEADERS  += widget.h \
     table.h \
     tree.h \
     B_node.h \
-    Btree.h
+    Btree.h \
+    node.h
 
 FORMS    += widget.ui \
     dialog.ui \
