@@ -2,8 +2,8 @@
 
 Node::Node(char name[20], int i)
 {
-    cout<<"Cons"<<endl;
-    cout<<name<<endl;
+//    cout<<"Cons"<<endl;
+//    cout<<name<<endl;
     for(int i =0; i<20;i++){
         this->name[i]=name[i];
     }

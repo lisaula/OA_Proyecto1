@@ -31,6 +31,7 @@ typedef struct inode{
     double indirectossimples;
     double indirectosdobles;
     double indirectostriples;
+    double lastDataBlock = -1;
 }inode_d;
 
 typedef struct FileTable{
@@ -41,6 +42,8 @@ typedef struct FileTable{
 class Disco
 {
 public:
+    void writeInode2(inode_d &inode, char *buffer, double size);
+    double getNextFreeBlock(char *&bitmap);
     bool is_block_in_use(char* bitmap, int blocknum);
     void setBlock_use(char* bitmap, int blocknum);
     void setBlock_unuse(char* bitmap, int blocknum);

@@ -113,6 +113,238 @@ bool Disco::crearDisco(string nombre, double disksizeMb, double blocksizeB)
     return true;
 }
 
+void Disco::writeInode2(inode_d &inode, char *buffer, double size)
+{
+    //los permisos deben darsele afuera de esta funcion
+    //el inodo como tal debe guardarse afuera de esta funcion
+    sb.freespace -= size;
+    if(inode.filesize==-1) //virgen
+    {
+        inode.filesize = size;
+        inode.blockuse = 1;
+
+        double block = getNextFreeBlock(bitmap);
+        sb.freeblock--;
+        inode.directos[0] = block;
+        inode.lastDataBlock = block;
+        write(buffer,block*sb.sizeofblock,size);
+    }else{ //no virgen
+        double used_blocks = inode.filesize/sb.sizeofblock;
+        int x = sb.sizeofblock/8;
+        double block_used_percent = used_blocks - floor(used_blocks);
+        double free_of_block = sb.sizeofblock - block_used_percent*sb.sizeofblock;
+
+
+        if(block_used_percent>0)
+        {
+            if(size <= free_of_block)
+            {
+                write(buffer,inode.lastDataBlock*sb.sizeofblock + block_used_percent*sb.sizeofblock,size);
+                inode.filesize += size;
+                return;
+            }else{
+                write(buffer,inode.lastDataBlock*sb.sizeofblock + block_used_percent*sb.sizeofblock,free_of_block);
+                inode.filesize += free_of_block;
+
+//                char *buf_temp = new char[sb.sizeofblock];
+//                strcpy(buf_temp,buffer);
+////                buffer = new char[sb.sizeofblock];
+//                memset(buffer,0,sb.sizeofblock);
+                //cout<<"buffer antes: "<<buffer<<endl;
+                //cout<<"free of blocks: "<<free_of_block<<endl;
+                //cout<<"size: "<<size<<endl;
+//                for (int i = (block_used_percent*sb.sizeofblock),j=0; i < size; ++i, j++) {
+//                    buffer[j] = buf_temp[i];
+//                }
+                char buf_temp[(int)size];
+                memcpy(buf_temp,buffer,size);
+                size -= free_of_block;
+                buffer = new char[(int)size];
+                memcpy(buffer,&buf_temp[(int)(free_of_block-1)],size);
+
+//                string buf_temp(buffer);
+//                string buf = buf_temp.substr(free_of_block,size);
+//                buffer = const_cast<char *>(buf.c_str());
+                buffer[0] = 'Y';
+                //cout<<"bytes copiados: "<<buffer<<endl;
+            }
+        }
+
+//        if(block_used_percent==0) // si los bloques usados estan todos llenos
+//        {
+            if(inode.blockuse < 10) //CASE 0:si los bloques de data usados son menorea a los DIRECTOS
+            {
+                double block = getNextFreeBlock(bitmap); //pide bloque libre al bitmap
+                sb.freeblock--;
+                int save_to = inode.blockuse++;    //guardamos el index de la siguente posicion libre de los DIRECTOS
+                inode.directos[save_to] = block;   //guardamos la direccion del bloque en los directos
+                inode.filesize += size;            //aumentamos el filesize del archivo
+                inode.lastDataBlock = block;
+                write(buffer,block*sb.sizeofblock,size);   //escribimos el bloque de data
+            }else if(inode.blockuse < (10 + x)){   //CASE 1: si bloques de data usados es menor I_SIMPLES mas los anteriores
+                double IS_ptr = inode.indirectossimples;
+                double *IS = new double[x];         //bloque de IS con las direcciones a los bloques de data
+                if(IS_ptr==-1)                      //si aun no hemos utilizado los I_SIMPLES
+                {
+                    IS_ptr = getNextFreeBlock(bitmap); //le pedimos un bloque al bitmap para el IS
+                    sb.freespace -= sb.sizeofblock;
+                    sb.freeblock--;
+                    inode.indirectossimples = IS_ptr; //actualizamos el inodo
+                    //llenamos el bloque con -1 el bloque
+                    for (int i = 0; i < x; ++i) {
+                        IS[i] = -1;
+                    }
+                }else{ //si ya habiamos utilizado antes el IS solo leemos lo que ya tenia
+                    char* buffer = new char[sb.sizeofblock];
+                    read(buffer,IS_ptr*sb.sizeofblock,sb.sizeofblock);
+                    memcpy(IS,buffer,sb.sizeofblock);
+                }
+
+                double block = getNextFreeBlock(bitmap); //bloque para la data
+                sb.freeblock--;
+                int save_to = inode.blockuse++ - 10; //sacamos el index en los IS donde guardaremos la direccion del bloque de data
+                IS[save_to] = block;
+                inode.filesize += size;
+                inode.lastDataBlock = block;
+
+                //escribimos el bloque de data y el bloque de IS como corresponda
+                write(buffer,block*sb.sizeofblock,size);
+                write((char*)IS,IS_ptr*sb.sizeofblock,sb.sizeofblock);
+            }else if(inode.blockuse < (10 + x + pow(x,2))){ //CASE 2: si bloques de data usados es menor I_DOBLES mas los anteriores
+                double ID_ptr = inode.indirectosdobles;
+                double *ID = new double[x];
+                double *ID_IS = new double[x];
+                if (ID_ptr==-1) { //si no hemos usado I_DOBLES antes
+                    ID_ptr = getNextFreeBlock(bitmap); //pedimos un bloque para los ID
+                    sb.freespace -= sb.sizeofblock;
+                    sb.freeblock--;
+                    inode.indirectosdobles = ID_ptr; //actualizamod el inodo
+                    for (int i = 0; i < x; ++i) { //lo inicializamos
+                        ID[i] = -1;
+                    }
+                }else{ //si ya lo habiamos usado solo lo leemos
+                    char* buffer = new char[sb.sizeofblock];
+                    read((buffer),ID_ptr*sb.sizeofblock,sb.sizeofblock);
+                    memcpy(ID,buffer,sb.sizeofblock);
+                }
+                double b_data_ID = inode.blockuse++ - 10 - x;  //cuantos bloques de DATA tiene el ID?
+                double IS_to_write = b_data_ID/x;               //cuantos IS esta usando para tenerlos?
+                if((IS_to_write - floor(IS_to_write))==0)       //los IS que esta usando ya estan llenos?
+                {
+                    //pide un bloque para añadirlo a los IS que usa el ID
+                    double addIS_toDoble = getNextFreeBlock(bitmap);
+                    sb.freespace -= sb.sizeofblock;
+                    sb.freeblock--;
+                    ID[(int)IS_to_write] = addIS_toDoble; //lo agrega
+                    for (int i = 0; i < x; ++i) { //lo inicializa con -1
+                        ID_IS[i] = -1;
+                    }
+                    //escribe el ID en el disco
+                    write((char*)ID,inode.indirectosdobles*sb.sizeofblock,sb.sizeofblock);
+                }else{ //sino, entonces hay espacio aun en el ultimo IS que esta usando el ID
+                    IS_to_write = floor(IS_to_write); //lo redondeamos para abajo para obtener el index de ese IS en el ID
+                    char* buffer = new char[sb.sizeofblock];
+                    read(buffer,ID[(int)IS_to_write]*sb.sizeofblock,sb.sizeofblock); //lemos el IS
+                    memcpy(ID_IS,buffer,sb.sizeofblock);
+                }
+                int indexInIS = b_data_ID - x*IS_to_write; //sacamos el index siguiente libre en el IS
+
+                double block = getNextFreeBlock(bitmap); //pedimos bloque para la data
+                sb.freeblock--;
+                ID_IS[indexInIS] = block; //lo guardamos el los IS que tiene el ID
+                inode.filesize += size;
+                inode.lastDataBlock = block;
+
+                //escribimos el bloque de data y el bloque del IS que pertenece al ID en el disco como corresponde
+                write(buffer,block*sb.sizeofblock,size);
+                write((char*)ID_IS,ID[(int)IS_to_write]*sb.sizeofblock,sb.sizeofblock);
+            }else if(inode.blockuse < (10 + x + pow(x,2) + pow(x,3))) //CASE 3: si bloques de data usados es menor I_TRIPLES mas los anteriores
+            {
+                double IT_ptr = inode.indirectostriples;
+                double *IT = new double[x];
+                double *IT_ID = new double[x];
+                double *IT_ID_IS = new double[x];
+                if(IT_ptr == -1) //si no hemos usado IT antes
+                {
+                    IT_ptr = getNextFreeBlock(bitmap); //pedimos bloque para IT
+                    sb.freespace -= sb.sizeofblock;
+                    sb.freeblock--;
+                    inode.indirectostriples = IT_ptr; //actualizamos el inodo
+                    for (int i = 0; i < x; ++i) { //lo inicializamos
+                        IT[i] = -1;
+                    }
+                }else{ //si ya lo habiamos usado solo lo leemos
+                    char* buffer = new char[sb.sizeofblock];
+                    read(buffer,IT_ptr*sb.sizeofblock,sb.sizeofblock);
+                    memcpy(IT,buffer,sb.sizeofblock);
+                }
+                double b_data_IT = inode.blockuse++ - 10 - x - pow(x,2); //cuantos bloques de DATA tiene el IT?
+                double ID_to_write = b_data_IT/pow(x,2);                  //cuantos ID esta usando el IT?
+                if((ID_to_write - floor(ID_to_write))==0)                 //los ID que esta usando ya estan llenos?
+                {
+                    //pide un bloque para añadirlo a los ID que usa el IT
+                    double addID_toTriple = getNextFreeBlock(bitmap);
+                    sb.freespace -= sb.sizeofblock;
+                    sb.freeblock--;
+                    IT[(int)ID_to_write] = addID_toTriple; //lo agrega
+                    for (int i = 0; i < x; ++i) { //lo inicializa
+                        IT_ID[i] = -1;
+                    }
+                    write((char*)IT,IT_ptr*sb.sizeofblock,sb.sizeofblock);
+                }else{ //sino, entonces hay espacio aun en el ultimo ID que esta usando el IT
+                    ID_to_write = floor(ID_to_write); //lo redondeamos hacia abajo para obtener el index en el IT
+                    char* buffer = new char[sb.sizeofblock];
+                    read(buffer,IT[(int)ID_to_write]*sb.sizeofblock,sb.sizeofblock); //lo leemos
+                    memcpy(IT_ID,buffer,sb.sizeofblock);
+                }
+
+                double IS_to_write = b_data_IT/x;                         //cuantos IS esta usando el IT?
+                double indexIS_inID = IS_to_write - x*ID_to_write;        //cual es el index del IS en el ID correspondiente?
+                if((IS_to_write - floor(IS_to_write))==0)                 //los IS que esta usando ya estan llenos?
+                {
+                    //pide un bloque para añadirlo a los IS que usa el ID correspondiente
+                    double addIS_toIDoble = getNextFreeBlock(bitmap);
+                    sb.freespace -= sb.sizeofblock;
+                    sb.freeblock--;
+                    IT_ID[(int)indexIS_inID] = addIS_toIDoble; //lo agrega
+                    for (int i = 0; i < x; ++i) { //lo inicializa
+                        IT_ID_IS[i] = -1;
+                    }
+                    write((char*)IT_ID,IT[(int)ID_to_write]*sb.sizeofblock,sb.sizeofblock);
+                }else{ //sino, entonces hay espacio aun en el ultimo IS del ID correspondiente que esta usando el IT
+                    IS_to_write = floor(IS_to_write); //redondeamos hacia abajo para luego sacar el index donde va ir la data en ese IS
+                    indexIS_inID = floor(indexIS_inID); //redondeamos hacia abajo para sacar el index del IS en el ID
+                    char * buf = new char[sb.sizeofblock];
+                    read(buf,IT_ID[(int)indexIS_inID]*sb.sizeofblock,sb.sizeofblock); //lo leemos
+                    memcpy(IT_ID_IS,buf,sb.sizeofblock);
+                }
+                int indexInIS = b_data_IT - x*IS_to_write; //calculamos el index de la DATA dentro del IS
+
+                double block = getNextFreeBlock(bitmap); //pide bloque para la DATA
+                sb.freeblock--;
+                IT_ID_IS[indexInIS] = block; //lo agrega al IS
+                inode.filesize += size;
+                inode.lastDataBlock = block;
+
+                //escribimos en el disco el bloque de DATA y el IS correcpondiente
+                write(buffer,block*sb.sizeofblock,size);
+                write((char*)IT_ID_IS,IT_ID[(int)indexIS_inID]*sb.sizeofblock,sb.sizeofblock);
+            }
+//        }else{ //si al ultimo bloque le falta por llenarse
+
+//        }
+    }
+}
+
+double Disco::getNextFreeBlock(char *&bitmap)
+{
+    int num = nextAvailable(this->bitmap,true);
+    if(num >=0){
+        setBlock_use(bitmap,num);
+    }
+    return num;
+}
+
 int Disco::getFreePosInArray(double *array, int size)
 {
     for(int i =0; i< size; i++ ){
@@ -2418,14 +2650,18 @@ bool Disco::mkFile(double size_file, string file_name)
                        bloque[0]='A';
                        bloque[sb.sizeofblock-1]='Z';
                        //strcpy(bloque,"1234567890123456");
-                       sb.freespace-=size_file+(needed[1]*sb.sizeofblock);
+                       //sb.freespace-=size_file+(needed[1]*sb.sizeofblock);
                        //cout<<needed[0]<<endl;
+                       //strcpy(inodo.permisos,"-rwxrwxrwx");
                        for(int i =0; i < needed[0];i++){
                            if(size_file<=0)
                                break;
                            if(size_file>=sb.sizeofblock){
+                               //cambio aqui
                                 writeBloque(bloque,inodo,sb.sizeofblock,"-rwxrwxrwx");
+                                //writeInode2(inodo,bloque,sb.sizeofblock);
                            }else{
+                               //writeInode2(inodo,bloque,size_file);
                                writeBloque(bloque,inodo,size_file,"-rwxrwxrwx");
                            }
                            size_file-=sb.sizeofblock;
