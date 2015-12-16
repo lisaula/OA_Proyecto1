@@ -25,7 +25,9 @@ HEADERS  += widget.h \
     disco.h \
     dialog.h \
     table.h \
-    tree.h
+    tree.h \
+    B_node.h \
+    Btree.h
 
 FORMS    += widget.ui \
     dialog.ui \

@@ -20,8 +20,9 @@ void Tree::createTree(inode_d &inodo, Disco * disk, QTreeWidgetItem* &raiz){
             createTree(t,disk,item);
         }
         hijos.push_back(item);
-        raiz->addChildren(hijos);
+
     }
+    raiz->addChildren(hijos);
 }
 
 Tree::Tree(QWidget *parent, Disco *disk) :

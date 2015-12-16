@@ -35,7 +35,6 @@ typedef struct inode{
 typedef struct FileTable{
     char name[20];
     int inode_index;
-
 }FileTable_d;
 
 class Disco
